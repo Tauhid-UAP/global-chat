@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"time"
+	"html/template"
 	
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
@@ -58,10 +59,10 @@ func main() {
 	
 	// Protected routes
 	protected := http.NewServeMux()
-
+	log.Printf("STATIC BASE: %s", cfg.StaticAssetBaseURL)
 	protected.HandleFunc("/logout", handlers.Logout)
 	protected.HandleFunc("/profile", handlers.Profile)
-	protected.HandleFunc("/chat", handlers.ChatPageHandler(cfg.StaticAssetBaseURL))
+	protected.HandleFunc("/chat", handlers.ChatPageHandler(template.URL(cfg.StaticAssetBaseURL)))
 
 	hub := chat.CreateHub()
 	websocketUpgrader := websocket.Upgrader{

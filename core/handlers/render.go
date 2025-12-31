@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"log"
+	"embed"
 	"html/template"
 	"net/http"
 
@@ -8,19 +10,24 @@ import (
 	"github.com/Tauhid-UAP/golang-sample-web-app/core/models"
 )
 
-var templates = template.Must(template.ParseGlob("core/templates/*.html"),)
+//The below comment is required so that the compiler embeds the HTML file in the build
+//go:embed templates/*.html
+var templateFS embed.FS
+
+var templates = template.Must(template.ParseFS(templateFS, "templates/*.html"))
 
 type PageData struct {
 	Title string
 	User models.User
 	CSRF string
-	StaticAssetBaseURL string
+	StaticAssetBaseURL template.URL
 }
 
 func Render(w http.ResponseWriter, page string, data PageData) {
-	template, err := template.ParseFiles(
-		"core/templates/base.html",
-		"core/templates/"+page,
+	template, err := template.ParseFS(
+		templateFS,
+		"templates/base.html",
+		"templates/"+page,
 	)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
@@ -28,6 +35,7 @@ func Render(w http.ResponseWriter, page string, data PageData) {
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	log.Printf("Static base before execute: %s", data.StaticAssetBaseURL)
 	err = template.ExecuteTemplate(w, "base", data)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
