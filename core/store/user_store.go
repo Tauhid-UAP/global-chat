@@ -3,7 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
-	"github.com/Tauhid-UAP/golang-sample-web-app/core/models"
+	"github.com/Tauhid-UAP/global-chat/core/models"
 )
 
 var DB *sql.DB

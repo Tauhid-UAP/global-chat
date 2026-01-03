@@ -1,4 +1,4 @@
-module github.com/Tauhid-UAP/golang-sample-web-app
+module github.com/Tauhid-UAP/global-chat
 
 go 1.25.5
 

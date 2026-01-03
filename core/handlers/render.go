@@ -7,7 +7,7 @@ import (
 	"net/http"
 
 
-	"github.com/Tauhid-UAP/golang-sample-web-app/core/models"
+	"github.com/Tauhid-UAP/global-chat/core/models"
 )
 
 //The below comment is required so that the compiler embeds the HTML file in the build

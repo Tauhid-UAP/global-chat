@@ -4,9 +4,9 @@ import (
 	"context"
 	"net/http"
 	"strings"
-	"github.com/Tauhid-UAP/golang-sample-web-app/core/auth"
+	"github.com/Tauhid-UAP/global-chat/core/auth"
 
-	"github.com/Tauhid-UAP/golang-sample-web-app/core/redisclient"
+	"github.com/Tauhid-UAP/global-chat/core/redisclient"
 )
 
 type ctxKey string

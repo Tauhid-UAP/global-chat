@@ -5,7 +5,7 @@ import (
 	"sync"
 	"log"
 
-	"github.com/Tauhid-UAP/golang-sample-web-app/core/redisclient"
+	"github.com/Tauhid-UAP/global-chat/core/redisclient"
 )
 
 type Hub struct {

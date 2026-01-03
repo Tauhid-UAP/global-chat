@@ -10,7 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/Tauhid-UAP/golang-sample-web-app/core/redisclient"
+	"github.com/Tauhid-UAP/global-chat/core/redisclient"
 )
 
 func randomToken() string {

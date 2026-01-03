@@ -4,7 +4,7 @@ import (
 	"log"
 	"net/http"
 	"html/template"
-	"github.com/Tauhid-UAP/golang-sample-web-app/core/middleware"
+	"github.com/Tauhid-UAP/global-chat/core/middleware"
 )
 
 func ChatPageHandler(staticAssetBaseURL template.URL) http.HandlerFunc {

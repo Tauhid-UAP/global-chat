@@ -6,11 +6,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/Tauhid-UAP/golang-sample-web-app/core/auth"
-	"github.com/Tauhid-UAP/golang-sample-web-app/core/models"
-	"github.com/Tauhid-UAP/golang-sample-web-app/core/store"
+	"github.com/Tauhid-UAP/global-chat/core/auth"
+	"github.com/Tauhid-UAP/global-chat/core/models"
+	"github.com/Tauhid-UAP/global-chat/core/store"
 
-	"github.com/Tauhid-UAP/golang-sample-web-app/core/redisclient"
+	"github.com/Tauhid-UAP/global-chat/core/redisclient"
 )
 
 func Register(w http.ResponseWriter, r *http.Request) {

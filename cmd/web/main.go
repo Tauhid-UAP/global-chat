@@ -13,14 +13,14 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/gorilla/websocket"
 	
-	"github.com/Tauhid-UAP/golang-sample-web-app/core/handlers"
-	"github.com/Tauhid-UAP/golang-sample-web-app/core/middleware"
-	"github.com/Tauhid-UAP/golang-sample-web-app/core/store"
-	"github.com/Tauhid-UAP/golang-sample-web-app/core/redisclient"
-	"github.com/Tauhid-UAP/golang-sample-web-app/core/awsclient"
-	"github.com/Tauhid-UAP/golang-sample-web-app/core/websockethandlers"
-	"github.com/Tauhid-UAP/golang-sample-web-app/core/chat"
-	"github.com/Tauhid-UAP/golang-sample-web-app/core/config"
+	"github.com/Tauhid-UAP/global-chat/core/handlers"
+	"github.com/Tauhid-UAP/global-chat/core/middleware"
+	"github.com/Tauhid-UAP/global-chat/core/store"
+	"github.com/Tauhid-UAP/global-chat/core/redisclient"
+	"github.com/Tauhid-UAP/global-chat/core/awsclient"
+	"github.com/Tauhid-UAP/global-chat/core/websockethandlers"
+	"github.com/Tauhid-UAP/global-chat/core/chat"
+	"github.com/Tauhid-UAP/global-chat/core/config"
 )
 
 func main() {
