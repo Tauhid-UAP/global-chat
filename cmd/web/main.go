@@ -23,6 +23,8 @@ import (
 	"github.com/Tauhid-UAP/global-chat/core/config"
 )
 
+var Version = "development"
+
 func main() {
 	if err := godotenv.Load(); err != nil {
 		log.Printf(".env file not found: %v\n", err)

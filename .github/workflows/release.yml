@@ -1,0 +1,67 @@
+name: Release
+
+on:
+  workflow_dispatch:
+
+env:
+  APP_NAME: global-chat
+  GO_VERSION: "1.25.5"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      -name: Checkout repository code
+       uses: actions/checkout@v4
+       with:
+         fetch-depth:0
+
+      -name: Resolve version from the latest tag
+       id: version
+       run: |
+         VERSION=$(git describe --tags --abbrev=0)
+         echo "VERSION=$VERSION" >> $GITHUB_ENV
+         echo "Releasing version $VERSION"
+
+      -name: Setup Go
+       uses: actions/setup-go@v5
+       with:
+         go-version: ${{env.GO_VERSION}}
+      
+      -name: Build binary
+       run: |
+         CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+         go build -o global-chat \
+          -ldflags "-s -w -X main.Version=${VERSION}" \
+          ./cmd/web
+
+      -name: Make package artifact
+       run: |
+         mkdir release
+         cp global-chat release/
+         cp -r migrations release/
+         tar -czf global-chat-${VERSION}-linux-amd64.tar.gz -C release.
+
+      -name: Configure AWS credentials (OIDC)
+       uses: aws-actions/configure-aws-credentials@v4
+       with:
+         role-to-assume: arn:aws:iam::${{secrets.AWS_ACCOUNT_ID}}:role/${{secrets.AWS_ROLE}}
+         aws-region: ${{secrets.AWS_REGION}}
+
+      -name: Upload binary artifact
+       run: |
+         aws s3 cp \
+          global-chat-${VERSION}-linux-amd64.tar.gz \
+          s3://${{secrets.ARTIFACT_BUCKET}}/releases/${VERSION}/
+
+      -name: Upload static assets
+       run: |
+         aws s3 sync static/ \
+          s3://${{secrets.ARTIFACT_BUCKET}}/global-chat-static/${VERSION}/ \
+          --delete
+
