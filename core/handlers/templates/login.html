@@ -1,7 +1,109 @@
 {{define "content"}}
-<form method="POST">
-    <input name="Email"><br>
-    <input type="password" name="Password"><br>
-    <button>Login</button>
-</form>
+<style>
+	body {
+	    margin: 0;
+	    height: 100vh;
+	    display: flex;
+	    justify-content: center;
+	    align-items: center;
+	    font-family: Arial, sans-serif;
+	    background-color: #f4f6f8;
+	}
+
+	.login-container {
+	    background: #ffffff;
+	    padding: 24px;
+	    width: 320px;
+	    border-radius: 8px;
+	    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+	}
+
+	.login-container h2 {
+	    text-align: center;
+	    margin-bottom: 20px;
+	}
+
+	.form-group {
+	    margin-bottom: 14px;
+	}
+
+	label {
+	    display: block;
+	    font-size: 14px;
+	    margin-bottom: 6px;
+	}
+
+	input[type="email"],
+	input[type="password"],
+	input[type="text"] {
+	    width: 100%;
+	    padding: 8px;
+	    box-sizing: border-box;
+	}
+
+	.show-password {
+	    display: flex;
+	    align-items: center;
+	    font-size: 13px;
+	    margin-top: 6px;
+	}
+
+	button {
+	    width: 100%;
+	    padding: 10px;
+	    margin-top: 10px;
+	    background-color: #2563eb;
+	    color: white;
+	    border: none;
+	    border-radius: 4px;
+	    cursor: pointer;
+	}
+
+	button:hover {
+	    background-color: #1d4ed8;
+	}
+
+	.register-link {
+	    text-align: center;
+	    margin-top: 14px;
+	    font-size: 14px;
+	}
+
+	.register-link a {
+	    color: #2563eb;
+	    text-decoration: none;
+	}
+
+	.register-link a:hover {
+	    text-decoration: underline;
+	}
+</style>
+
+<div class="login-container">
+	<h2>Login</h2>
+
+	<form method="POST">
+	    <div class="form-group">
+		<label for="email">Email</label>
+		<input type="email" id="email" name="Email" required>
+	    </div>
+
+	    <div class="form-group">
+		<label for="password">Password</label>
+		<input type="password" id="password" name="Password" required>
+
+		<div class="show-password">
+		    <input type="checkbox" onclick="togglePassword('password')"> Show password
+		</div>
+	    </div>
+
+	    <button type="submit">Login</button>
+	</form>
+
+	<div class="register-link">
+	    New user? <a href="/register">Click here to register</a>
+	</div>
+</div>
+
+<script src="{{.StaticAssetBaseURL}}/js/toggle-password.js"></script>
 {{end}}

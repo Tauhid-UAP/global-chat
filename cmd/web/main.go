@@ -48,23 +48,25 @@ func main() {
 
 	mux := http.NewServeMux()
 
-	// Public routes
-	mux.HandleFunc("/register", handlers.Register)
-	mux.HandleFunc("/login", handlers.Login)
+        cfg := config.Load()
 
-	cfg := config.Load()
+        if cfg.Debug {
+                // Static files
+                mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
+        }
 	
-	if cfg.Debug {
-		// Static files
-		mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
-	}
+	staticAssetBaseURL := template.URL(cfg.StaticAssetBaseURL)
+
+	// Public routes
+	mux.HandleFunc("/register", handlers.RegisterHandler(staticAssetBaseURL))
+	mux.HandleFunc("/login", handlers.LoginHandler(staticAssetBaseURL))
 	
 	// Protected routes
 	protected := http.NewServeMux()
 	log.Printf("STATIC BASE: %s", cfg.StaticAssetBaseURL)
 	protected.HandleFunc("/logout", handlers.Logout)
 	protected.HandleFunc("/profile", handlers.Profile)
-	protected.HandleFunc("/chat", handlers.ChatPageHandler(template.URL(cfg.StaticAssetBaseURL)))
+	protected.HandleFunc("/chat", handlers.ChatPageHandler(staticAssetBaseURL))
 
 	hub := chat.CreateHub()
 	websocketUpgrader := websocket.Upgrader{
