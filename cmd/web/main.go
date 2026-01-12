@@ -48,12 +48,11 @@ func main() {
 
 	mux := http.NewServeMux()
 
-        cfg := config.Load()
-
-        if cfg.Debug {
-                // Static files
-                mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
-        }
+	cfg := config.Load()
+	if cfg.Debug {
+		// Static files
+		mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
+	}
 	
 	staticAssetBaseURL := template.URL(cfg.StaticAssetBaseURL)
 
@@ -64,8 +63,8 @@ func main() {
 	// Protected routes
 	protected := http.NewServeMux()
 	log.Printf("STATIC BASE: %s", cfg.StaticAssetBaseURL)
+	protected.HandleFunc("/", handlers.Profile)
 	protected.HandleFunc("/logout", handlers.Logout)
-	protected.HandleFunc("/profile", handlers.Profile)
 	protected.HandleFunc("/chat", handlers.ChatPageHandler(staticAssetBaseURL))
 
 	hub := chat.CreateHub()
