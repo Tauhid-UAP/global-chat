@@ -4,6 +4,10 @@ import (
 	"log"
 	"context"
 	"sync"
+	"time"
+	"encoding/json"
+
+	"github.com/Tauhid-UAP/global-chat/core/redisclient"
 )
 
 type Room struct {
@@ -31,13 +35,23 @@ func (room *Room) Run(ctx context.Context, onEmpty func()) {
 				room.mu.Unlock()
 
 			case client := <- room.Unregister:
-				log.Printf("Client - %s left room %s", client.UserID, client.RoomName)
+				roomName := client.RoomName
+				log.Printf("Client - %s left room %s", client.UserID, roomName)
 				room.mu.Lock()
 				delete(clients, client)
 				isEmptyRoom := len(clients) == 0
 				room.mu.Unlock()
 
 				close(client.Receiver)
+				
+				userLeftPayload := CreateWebSocketMessageForUserLeaving(client.UserFullName, time.Now().UTC())
+				userLeftPayloadBytes, err := json.Marshal(userLeftPayload)
+				if err == nil {
+					redisclient.PublishToRoom(ctx, roomName, userLeftPayloadBytes)
+
+				} else {
+					log.Printf("Error marshalling user left payload: %v", err)
+				}
 
 				if isEmptyRoom {
 					return

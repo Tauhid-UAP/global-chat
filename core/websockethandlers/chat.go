@@ -28,23 +28,33 @@ func ChatHandler(websocketUpgrader websocket.Upgrader, hub *chat.Hub) http.Handl
 		if err != nil {
 			return
 		}
-
+		
+		ctx := context.Background()
 		userID := r.Context().Value(middleware.UserIDKey).(string)
+		user, _ := store.GetUserByID(ctx, userID)
+		userFullName := fmt.Sprintf("%s %s", user.FirstName, user.LastName)
 		
 		client := &chat.Client{
 			Conn: websocketConnection,
 			Receiver: make(chan []byte, 256),
 			UserID: userID,
+			UserFullName: userFullName,
 			RoomName: roomName,
 		}
 
-		ctx := context.Background()
 		room := hub.GetOrCreateRoom(ctx, roomName)
 		room.Register <- client
 
 		go client.ReceiveMessages()
-		
-		user, _ := store.GetUserByID(ctx, userID)
+
+		userJoinedPayload := chat.CreateWebSocketMessageForUserJoining(userFullName, time.Now().UTC())
+		userJoinedPayloadBytes, _ := json.Marshal(userJoinedPayload)
+		if err == nil {
+			redisclient.PublishToRoom(ctx, roomName, userJoinedPayloadBytes)
+		} else {
+			log.Printf("Error marshalling user join payload: %v", err)
+		}
+
 
 		for {
 			_, message, err := websocketConnection.ReadMessage()
@@ -54,7 +64,7 @@ func ChatHandler(websocketUpgrader websocket.Upgrader, hub *chat.Hub) http.Handl
 				break
 			}
 
-			// payload := []byte(userID + ": " + string(message))
+			/*
 			payload := chat.WebSocketMessage{
 				Type: chat.EventChatMessage,
 				Data: chat.ChatMessageData{
@@ -63,6 +73,12 @@ func ChatHandler(websocketUpgrader websocket.Upgrader, hub *chat.Hub) http.Handl
 					SentAt: time.Now().UTC(),
 				},
 			}
+			*/
+			payload := chat.CreateWebSocketMessageForChatMessageData(
+				userFullName,
+				string(message),
+				time.Now().UTC(),
+			)
 			log.Printf("Publishing to room: %s", payload)
 
 			payloadBytes, err := json.Marshal(payload)
