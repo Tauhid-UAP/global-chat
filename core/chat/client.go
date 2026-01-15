@@ -11,6 +11,7 @@ type Client struct {
 	Conn *websocket.Conn
 	Receiver chan []byte
 	UserID string
+	UserFullName string
 	RoomName string
 }
 

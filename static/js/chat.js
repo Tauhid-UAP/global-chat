@@ -109,6 +109,7 @@ document.addEventListener("DOMContentLoaded", function () {
 	    div.className = "system-message";
 	    div.textContent = text;
 	    messagesDiv.appendChild(div);
+	    messagesDiv.scrollTop = messagesDiv.scrollHeight;
     }
 
     function onMessage(event) {
