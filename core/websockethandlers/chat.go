@@ -47,7 +47,7 @@ func ChatHandler(websocketUpgrader websocket.Upgrader, hub *chat.Hub) http.Handl
 
 		go client.ReceiveMessages()
 
-		userJoinedPayload := chat.CreateWebSocketMessageForUserJoining(userFullName, time.Now().UTC())
+		userJoinedPayload := chat.CreateWebSocketMessageForUserJoining(userID, userFullName, time.Now().UTC())
 		userJoinedPayloadBytes, _ := json.Marshal(userJoinedPayload)
 		if err == nil {
 			redisclient.PublishToRoom(ctx, roomName, userJoinedPayloadBytes)
@@ -75,6 +75,7 @@ func ChatHandler(websocketUpgrader websocket.Upgrader, hub *chat.Hub) http.Handl
 			}
 			*/
 			payload := chat.CreateWebSocketMessageForChatMessageData(
+				userID,
 				userFullName,
 				string(message),
 				time.Now().UTC(),
