@@ -73,7 +73,7 @@ func LoginHandler(staticAssetBaseURL template.URL) http.HandlerFunc {
 			return
 		}
 
-		sessionID, _, err := auth.CreateSession(r.Context(), user.ID, 24*time.Hour)
+		sessionID, _, err := auth.CreateSession(r.Context(), user.ID, false, 24*time.Hour)
 		if err != nil {
 			http.Error(w, "Session error", 500)
 			return

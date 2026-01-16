@@ -3,11 +3,42 @@ package redisclient
 import (
 	"context"
 	"os"
+	"strconv"
 
 	"github.com/redis/go-redis/v9"
+
+	"github.com/Tauhid-UAP/global-chat/core/models"
 )
 
 var Client *redis.Client
+
+func AddUser(ctx context.Context, cacheKey string, userID string, firstName string, lastName string, isAnonymous bool) error {
+	return Client.HSet(ctx, cacheKey, map[string]interface{}{
+		"id": userID,
+		"first_name": firstName,
+		"last_name": lastName,
+		"is_anonymous": isAnonymous,
+	}).Err()
+}
+
+func GetUserByCacheKey(ctx context.Context, cacheKey string) (models.User, error) {
+	data, err := Client.HGetAll(ctx, cacheKey).Result()
+	if err != nil {
+		return models.User{}, err
+	}
+	
+	isAnonymousUser, err := strconv.ParseBool(data["is_anonymous"])
+	if err != nil {
+		return models.User{}, err
+	}
+
+	return models.User {
+		ID: data["id"],
+		FirstName: data["first_name"],
+		LastName: data["last_name"],
+		IsAnonymous: isAnonymousUser,
+	}, nil
+}
 
 var PubSubClient *redis.Client
 
