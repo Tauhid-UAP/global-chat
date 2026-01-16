@@ -44,7 +44,7 @@ func (room *Room) Run(ctx context.Context, onEmpty func()) {
 
 				close(client.Receiver)
 				
-				userLeftPayload := CreateWebSocketMessageForUserLeaving(client.UserFullName, time.Now().UTC())
+				userLeftPayload := CreateWebSocketMessageForUserLeaving(client.UserID, client.UserFullName, time.Now().UTC())
 				userLeftPayloadBytes, err := json.Marshal(userLeftPayload)
 				if err == nil {
 					redisclient.PublishToRoom(ctx, roomName, userLeftPayloadBytes)

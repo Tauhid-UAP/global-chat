@@ -75,13 +75,17 @@ document.addEventListener("DOMContentLoaded", function () {
 	});
     }
 
-    function addMessage(fullName, message, sentAt) {
+    function addMessage(senderID, senderFullName, message, sentAt) {
 	    const wrapper = document.createElement("div");
 	    wrapper.className = "message";
 
+	    if (userID === senderID) {
+		    wrapper.classList.add("own");
+	    }
+
 	    const nameSpan = document.createElement("span");
 	    nameSpan.className = "user-full-name";
-	    nameSpan.textContent = fullName;
+	    nameSpan.textContent = senderFullName;
 
 	    const separatorSpan = document.createElement("span");
 	    separatorSpan.className = "message-separator";
@@ -118,15 +122,15 @@ document.addEventListener("DOMContentLoaded", function () {
 	    const data = payload.Data;
 	    switch (payloadType) {
 		    case "chat.message":
-			    addMessage(data.FullName, data.Message, data.SentAt);
+			    addMessage(data.User.ID, data.User.FullName, data.Message, data.Meta.SentAt);
 			    break;
 
 		    case "user.join":
-			    renderSystemMessage(`${data.FullName} joined`);
+			    renderSystemMessage(`${data.User.FullName} joined`);
 			    break;
 
 		    case "user.leave":
-			    renderSystemMessage(`${data.FullName} left`);
+			    renderSystemMessage(`${data.User.FullName} left`);
 			    break;
 	    }
     }
