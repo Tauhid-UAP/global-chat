@@ -13,25 +13,33 @@ import (
 	"github.com/Tauhid-UAP/global-chat/core/chat"
 	"github.com/Tauhid-UAP/global-chat/core/middleware"
 	"github.com/Tauhid-UAP/global-chat/core/redisclient"
-	"github.com/Tauhid-UAP/global-chat/core/store"
+	"github.com/Tauhid-UAP/global-chat/core/userselector"
 )
 
 func ChatHandler(websocketUpgrader websocket.Upgrader, hub *chat.Hub) http.HandlerFunc {
 	return func (w http.ResponseWriter, r *http.Request) {
+		log.Printf("Start")
 		roomName := r.URL.Query().Get("roomName")
 		if roomName == "" {
 			http.Error(w, "roomName required", http.StatusBadRequest)
+			log.Printf("No room name")
 			return
 		}
 
+		log.Printf("Upgrading connection")
+
 		websocketConnection, err := websocketUpgrader.Upgrade(w, r, nil)
 		if err != nil {
+			log.Printf("Connection failed")
 			return
 		}
+
+		log.Printf("Connection upgraded")
 		
 		ctx := context.Background()
 		userID := r.Context().Value(middleware.UserIDKey).(string)
-		user, _ := store.GetUserByID(ctx, userID)
+		isAnonymousUser := r.Context().Value(middleware.IsAnonymousUserKey).(bool)
+		user, _ := userselector.GetUserByIDFromApplicableStore(ctx, userID, isAnonymousUser)
 		userFullName := fmt.Sprintf("%s %s", user.FirstName, user.LastName)
 		
 		client := &chat.Client{
@@ -47,7 +55,7 @@ func ChatHandler(websocketUpgrader websocket.Upgrader, hub *chat.Hub) http.Handl
 
 		go client.ReceiveMessages()
 
-		userJoinedPayload := chat.CreateWebSocketMessageForUserJoining(userFullName, time.Now().UTC())
+		userJoinedPayload := chat.CreateWebSocketMessageForUserJoining(userID, userFullName, time.Now().UTC())
 		userJoinedPayloadBytes, _ := json.Marshal(userJoinedPayload)
 		if err == nil {
 			redisclient.PublishToRoom(ctx, roomName, userJoinedPayloadBytes)
@@ -64,17 +72,8 @@ func ChatHandler(websocketUpgrader websocket.Upgrader, hub *chat.Hub) http.Handl
 				break
 			}
 
-			/*
-			payload := chat.WebSocketMessage{
-				Type: chat.EventChatMessage,
-				Data: chat.ChatMessageData{
-					FullName: fmt.Sprintf("%s %s", user.FirstName, user.LastName),
-					Message: string(message),
-					SentAt: time.Now().UTC(),
-				},
-			}
-			*/
 			payload := chat.CreateWebSocketMessageForChatMessageData(
+				userID,
 				userFullName,
 				string(message),
 				time.Now().UTC(),

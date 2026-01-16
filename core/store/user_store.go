@@ -17,14 +17,14 @@ func CreateUser(ctx context.Context, user models.User) error {
 }
 
 func GetUserByEmail(ctx context.Context, email string) (models.User, error) {
-	var u models.User
+	u := models.InstantiateRegisteredUser()
 	err := DB.QueryRowContext(ctx, `SELECT id,email,first_name,last_name,password_hash,profile_image,created_at,updated_at FROM users WHERE email=$1`, email).Scan(&u.ID, &u.Email, &u.FirstName, &u.LastName, &u.PasswordHash, &u.ProfileImage, &u.CreatedAt, &u.UpdatedAt)
 
 	return u, err
 }
 
 func GetUserByID(ctx context.Context, id string) (models.User, error) {
-	var u models.User
+	u := models.InstantiateRegisteredUser()
 	err := DB.QueryRowContext(ctx, `SELECT id,email,first_name,last_name,password_hash,profile_image,created_at,updated_at FROM users WHERE id=$1`, id).Scan(&u.ID, &u.Email, &u.FirstName, &u.LastName, &u.PasswordHash, &u.ProfileImage, &u.CreatedAt, &u.UpdatedAt)
 
 	return u, err
