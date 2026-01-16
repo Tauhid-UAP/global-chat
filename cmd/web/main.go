@@ -65,15 +65,23 @@ func main() {
 	log.Printf("STATIC BASE: %s", cfg.StaticAssetBaseURL)
 	protected.HandleFunc("/", handlers.Profile)
 	protected.HandleFunc("/logout", handlers.Logout)
-	protected.HandleFunc("/chat", handlers.ChatPageHandler(staticAssetBaseURL))
+	// protected.HandleFunc("/chat", handlers.ChatPageHandler(staticAssetBaseURL))
+	protectedHandler := middleware.AuthMiddleware(middleware.CSRFMiddleware(protected))
+	
+	// Routes for both authenticated and anonymous users
+	optionalAuthMux := http.NewServeMux()
+	optionalAuthMux.HandleFunc("/chat", handlers.ChatPageHandler(staticAssetBaseURL))
 
 	hub := chat.CreateHub()
 	websocketUpgrader := websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool {return true},
 	}
-	protected.HandleFunc("/ws/chat", websockethandlers.ChatHandler(websocketUpgrader, hub))
-	
-	protectedHandler := middleware.AuthMiddleware(middleware.CSRFMiddleware(protected))
+	optionalAuthMux.HandleFunc("/ws/chat", websockethandlers.ChatHandler(websocketUpgrader, hub))
+
+	optionalAuthHandler := middleware.OptionalAuthMiddleware(middleware.CSRFMiddleware(optionalAuthMux))
+
+	mux.Handle("/chat", optionalAuthHandler)
+	mux.Handle("/ws/chat", optionalAuthHandler)
 
 	mux.Handle("/", protectedHandler)
 	

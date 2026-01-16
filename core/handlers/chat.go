@@ -4,8 +4,9 @@ import (
 	"log"
 	"net/http"
 	"html/template"
+
 	"github.com/Tauhid-UAP/global-chat/core/middleware"
-	"github.com/Tauhid-UAP/global-chat/core/store"
+	"github.com/Tauhid-UAP/global-chat/core/userselector"
 )
 
 func ChatPageHandler(staticAssetBaseURL template.URL) http.HandlerFunc {
@@ -14,7 +15,9 @@ func ChatPageHandler(staticAssetBaseURL template.URL) http.HandlerFunc {
 		log.Printf("Static base before render: %s", staticAssetBaseURL)
 
 		userID := r.Context().Value(middleware.UserIDKey).(string)
-		user, _ := store.GetUserByID(r.Context(), userID)
+		isAnonymousUser := r.Context().Value(middleware.IsAnonymousUserKey).(bool)
+		
+		user, _ := userselector.GetUserByIDFromApplicableStore(r.Context(), userID, isAnonymousUser)
 
 		Render(w, "chat.html", PageData{
 			Title: "Global Chat",

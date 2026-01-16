@@ -19,7 +19,7 @@ func randomToken() string {
 	return base64.RawStdEncoding.EncodeToString(b)
 }
 
-func CreateSession(ctx context.Context, userID string, ttl time.Duration) (string, string, error) {
+func CreateSession(ctx context.Context, userID string, isAnonymousUser bool, ttl time.Duration) (string, string, error) {
 	sessionID := uuid.NewString()
 	csrfToken := randomToken()
 
@@ -27,6 +27,7 @@ func CreateSession(ctx context.Context, userID string, ttl time.Duration) (strin
 
 	err := redisclient.Client.HSet(ctx, key, map[string]interface{}{
 		"user_id": userID,
+		"is_anonymous_user": isAnonymousUser,
 		"csrf_token": csrfToken,
 	}).Err()
 
