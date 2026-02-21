@@ -43,9 +43,10 @@ services:
   migrate:
     image: migrate/migrate:v4.17.1
     profiles: ["tools"]
+    env_file:
+      - .env  
     volumes:
       - ./migrations:/migrations
-    entrypoint: [""]
     depends_on:
       db:
         condition: service_healthy
