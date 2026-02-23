@@ -41,12 +41,12 @@ services:
     restart: unless-stopped
 
   migrate:
-    image: migrate/migrate:v4.17.1
+    build: .
     profiles: ["tools"]
     env_file:
-      - .env  
-    volumes:
-      - ./migrations:/migrations
+      - .env
+    command: >
+      sh -c "migrate -path /app/migrations -database $$DATABASE_URL up"
     depends_on:
       db:
         condition: service_healthy

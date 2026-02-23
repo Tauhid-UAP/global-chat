@@ -34,12 +34,12 @@ logs:
 # Run migrations up
 migrate-up:
 	docker compose --profile tools run --rm migrate \
-		-path=/migrations -database=$$DATABASE_URL up
+    		migrate -path /app/migrations -database $$DATABASE_URL up
 
 # Rollback one migration
 migrate-down:
 	docker compose --profile tools run --rm migrate \
-		-path=/migrations -database=$$DATABASE_URL down 1
+		migrate -path /app/migrations -database $$DATABASE_URL down 1
 
 # Restart web container
 restart:
