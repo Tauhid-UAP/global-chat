@@ -47,8 +47,8 @@ jobs:
           context: .
           push: true
           tags: |
-            ghcr.io/${{ github.repository }}:${{ env.VERSION }}
-            ghcr.io/${{ github.repository }}:latest
+            ghcr.io/tauhid-uap/global-chat:${{ env.VERSION }}
+            ghcr.io/tauhid-uap/global-chat:latest
           build-args: |
             VERSION=${{ env.VERSION }}
 
