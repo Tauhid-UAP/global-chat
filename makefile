@@ -1,4 +1,4 @@
-include .env
+include services/chat/.env
 export
 
 .PHONY: up down build rebuild logs migrate-up migrate-down restart web infra

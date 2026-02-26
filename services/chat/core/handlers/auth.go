@@ -7,11 +7,11 @@ import (
 	"html/template"
 
 	"github.com/google/uuid"
-	"github.com/Tauhid-UAP/global-chat/core/auth"
-	"github.com/Tauhid-UAP/global-chat/core/models"
-	"github.com/Tauhid-UAP/global-chat/core/store"
+	"github.com/Tauhid-UAP/global-chat/services/chat/core/auth"
+	"github.com/Tauhid-UAP/global-chat/services/chat/core/models"
+	"github.com/Tauhid-UAP/global-chat/services/chat/core/store"
 
-	"github.com/Tauhid-UAP/global-chat/core/redisclient"
+	"github.com/Tauhid-UAP/global-chat/services/chat/core/redisclient"
 )
 
 func RegisterHandler(staticAssetBaseURL template.URL) http.HandlerFunc {

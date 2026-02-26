@@ -10,10 +10,10 @@ import (
 
 	"github.com/gorilla/websocket"
 
-	"github.com/Tauhid-UAP/global-chat/core/chat"
-	"github.com/Tauhid-UAP/global-chat/core/middleware"
-	"github.com/Tauhid-UAP/global-chat/core/redisclient"
-	"github.com/Tauhid-UAP/global-chat/core/userselector"
+	"github.com/Tauhid-UAP/global-chat/services/chat/core/chat"
+	"github.com/Tauhid-UAP/global-chat/services/chat/core/middleware"
+	"github.com/Tauhid-UAP/global-chat/services/chat/core/redisclient"
+	"github.com/Tauhid-UAP/global-chat/services/chat/core/userselector"
 )
 
 func ChatHandler(websocketUpgrader websocket.Upgrader, hub *chat.Hub) http.HandlerFunc {
