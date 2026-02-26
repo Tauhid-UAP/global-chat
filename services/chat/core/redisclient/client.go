@@ -7,7 +7,7 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
-	"github.com/Tauhid-UAP/global-chat/core/models"
+	"github.com/Tauhid-UAP/global-chat/services/chat/core/models"
 )
 
 var Client *redis.Client
