@@ -1,10 +1,7 @@
 services:
   db:
     image: postgres:16
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+    env_file: ./services/chat/.env
     ports:
       - "${POSTGRES_PORT}:5432"
     volumes:
@@ -24,11 +21,13 @@ services:
     command: redis-server --save 60 1 --loglevel warning
 
   web:
-    build: .
+    build:
+      context: ./services/chat
+      dockerfile: Dockerfile
     ports:
       - "8000:8000"
     env_file:
-      - .env
+      - ./services/chat/.env
     depends_on:
       db:
         condition: service_healthy
@@ -36,15 +35,14 @@ services:
         condition: service_started
     volumes:
       - ~/.aws:/root/.aws:ro
-      - ./static:/app/static:ro
-      - ./media/uploads:/app/media/uploads
+      - ./services/chat/static/:/app/static:ro
     restart: unless-stopped
 
   migrate:
     build: .
     profiles: ["tools"]
     env_file:
-      - .env
+      - ./services/chat/.env
     command: >
       sh -c "migrate -path /app/migrations -database $$DATABASE_URL up"
     depends_on:
