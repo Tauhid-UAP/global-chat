@@ -7,10 +7,10 @@ import (
 	"log"
 	"time"
 
-	"github.com/Tauhid-UAP/global-chat/core/middleware"
-	"github.com/Tauhid-UAP/global-chat/core/store"
+	"github.com/Tauhid-UAP/global-chat/services/chat/core/middleware"
+	"github.com/Tauhid-UAP/global-chat/services/chat/core/store"
 
-	"github.com/Tauhid-UAP/global-chat/core/awsclient"
+	"github.com/Tauhid-UAP/global-chat/services/chat/core/awsclient"
 )
 
 func Profile(w http.ResponseWriter, r *http.Request) {

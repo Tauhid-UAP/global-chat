@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"html/template"
 
-	"github.com/Tauhid-UAP/global-chat/core/middleware"
-	"github.com/Tauhid-UAP/global-chat/core/userselector"
+	"github.com/Tauhid-UAP/global-chat/services/chat/core/middleware"
+	"github.com/Tauhid-UAP/global-chat/services/chat/core/userselector"
 )
 
 func ChatPageHandler(staticAssetBaseURL template.URL) http.HandlerFunc {

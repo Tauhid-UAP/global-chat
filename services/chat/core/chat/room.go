@@ -7,7 +7,7 @@ import (
 	"time"
 	"encoding/json"
 
-	"github.com/Tauhid-UAP/global-chat/core/redisclient"
+	"github.com/Tauhid-UAP/global-chat/services/chat/core/redisclient"
 )
 
 type Room struct {

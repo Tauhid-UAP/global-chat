@@ -13,14 +13,14 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/gorilla/websocket"
 	
-	"github.com/Tauhid-UAP/global-chat/core/handlers"
-	"github.com/Tauhid-UAP/global-chat/core/middleware"
-	"github.com/Tauhid-UAP/global-chat/core/store"
-	"github.com/Tauhid-UAP/global-chat/core/redisclient"
-	"github.com/Tauhid-UAP/global-chat/core/awsclient"
-	"github.com/Tauhid-UAP/global-chat/core/websockethandlers"
-	"github.com/Tauhid-UAP/global-chat/core/chat"
-	"github.com/Tauhid-UAP/global-chat/core/config"
+	"github.com/Tauhid-UAP/global-chat/services/chat/core/handlers"
+	"github.com/Tauhid-UAP/global-chat/services/chat/core/middleware"
+	"github.com/Tauhid-UAP/global-chat/services/chat/core/store"
+	"github.com/Tauhid-UAP/global-chat/services/chat/core/redisclient"
+	"github.com/Tauhid-UAP/global-chat/services/chat/core/awsclient"
+	"github.com/Tauhid-UAP/global-chat/services/chat/core/websockethandlers"
+	"github.com/Tauhid-UAP/global-chat/services/chat/core/chat"
+	"github.com/Tauhid-UAP/global-chat/services/chat/core/config"
 )
 
 var Version = "development"
