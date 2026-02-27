@@ -8,7 +8,7 @@ on:
         required: true
 
 env:
-  IMAGE_NAME: ghcr.io/${{ github.repository }}/chat
+  IMAGE_NAME: ghcr.io/tauhid-uap/global-chat/chat
 
 jobs:
   build:
