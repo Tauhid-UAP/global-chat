@@ -60,7 +60,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: /services/chat/Dockerfile
+          file: ./services/chat/Dockerfile
           push: true
           tags: |
             ${{ env.IMAGE_NAME }}:${{ env.VERSION }}
