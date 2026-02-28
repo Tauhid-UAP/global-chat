@@ -1,5 +1,5 @@
-github.com/Tauhid-UAP/global-chat/proto v1.0.1 h1:n2+mAgFp1SfES445IL6HFUqGfLeUmV0qSSC/ejVT+hU=
-github.com/Tauhid-UAP/global-chat/proto v1.0.1/go.mod h1:CXgD3L7sJp/DAmgoV+c7WWYmm5KUAlPZbqUKsztoq9M=
+github.com/Tauhid-UAP/global-chat/proto v1.0.2 h1:HSRo+RWV3rGOgqiMTlu42Cs8hARmTsvz4w7unmkAZYE=
+github.com/Tauhid-UAP/global-chat/proto v1.0.2/go.mod h1:CXgD3L7sJp/DAmgoV+c7WWYmm5KUAlPZbqUKsztoq9M=
 github.com/cespare/xxhash/v2 v2.3.0 h1:UL815xU9SqsFlibzuggzjXhog7bL6oX9BbNZnL2UFvs=
 github.com/cespare/xxhash/v2 v2.3.0/go.mod h1:VGX0DQ3Q6kWi7AoAeZDth3/j3BFtOZR5XLFGgcrjCOs=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
