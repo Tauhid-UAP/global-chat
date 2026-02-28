@@ -3,7 +3,7 @@ module github.com/Tauhid-UAP/global-chat/services/sfu
 go 1.25.5
 
 require (
-	github.com/Tauhid-UAP/global-chat/proto v1.0.1
+	github.com/Tauhid-UAP/global-chat/proto v1.0.2
 	github.com/pion/webrtc/v3 v3.3.6
 	google.golang.org/grpc v1.79.1
 )
