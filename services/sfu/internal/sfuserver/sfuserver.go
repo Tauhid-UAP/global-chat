@@ -202,11 +202,13 @@ func (s *SFUServer) Signal(stream sfupb.SFUService_SignalServer) error {
 		}
 
 		if ice := req.GetIceCandidate(); ice != nil {
+			// Manually convert SdpMlineIndex to uint16 because Pion uses uint16 but Protobuf does not support uint16.
+			mLineIndex := uint16(ice.SdpMlineIndex)
 			err := currentPeer.PeerConnection.AddICECandidate(
 				webrtc.ICECandidateInit{
 					Candidate: ice.Candidate,
 					SDPMid: &ice.SdpMid,
-					SDPMLineIndex: &ice.SdpMlineIndex,
+					SDPMLineIndex: &mLineIndex,
 				},
 			)
 			if err != nil {
