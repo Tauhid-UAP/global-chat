@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+package sfu;
+
+option go_package = "github.com/Tauhid-UAP/global-chat/proto/sfu;sfupb";
+
+// Bidirectional stream between Signalling server and SFU
+service SFUService {
+	rpc Signal(stream SignalRequest) returns (stream SignalResponse);
+}
+
+// Sent from Signalling -> SFU
+message SignalRequest {
+	string room_name = 1;
+	string user_id = 2;
+
+	oneof payload {
+		WebRTCOffer offer = 3;
+		// WebRTCICECandidate ice_candidate = 4; Not implemented yet
+	}
+}
+
+// Sent from SFU -> Signalling
+message SignalResponse {
+	string room_name = 1;
+	string user_id = 2;
+
+	oneof payload {
+		WebRTCAnswer answer = 3;
+		// WebRTCICECandidate ice_candidate = 4; // Not implemented yet
+	}
+}
+
+message WebRTCOffer {
+	string sdp = 1;
+}
+
+message WebRTCAnswer {
+	string sdp = 1;
+}
+
