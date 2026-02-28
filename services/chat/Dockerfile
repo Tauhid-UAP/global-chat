@@ -5,10 +5,10 @@ WORKDIR /app
 
 RUN apk add --no-cache git
 
-COPY go.mod go.sum ./
+COPY services/chat/go.mod services/chat/go.sum ./
 RUN go mod download
 
-COPY . .
+COPY services/chat ./
 
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
     go build -o app ./cmd/web
