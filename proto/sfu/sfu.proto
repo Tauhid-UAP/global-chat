@@ -16,7 +16,7 @@ message SignalRequest {
 
 	oneof payload {
 		WebRTCOffer offer = 3;
-		// WebRTCICECandidate ice_candidate = 4; Not implemented yet
+		WebRTCICECandidate ice_candidate = 4;
 	}
 }
 
@@ -27,7 +27,7 @@ message SignalResponse {
 
 	oneof payload {
 		WebRTCAnswer answer = 3;
-		// WebRTCICECandidate ice_candidate = 4; // Not implemented yet
+		WebRTCICECandidate ice_candidate = 4;
 	}
 }
 
@@ -39,3 +39,8 @@ message WebRTCAnswer {
 	string sdp = 1;
 }
 
+message WebRTCICECandidate {
+	string candidate = 1;
+	string sdp_mid = 2;
+	int32 sdp_mline_index = 3;
+}
