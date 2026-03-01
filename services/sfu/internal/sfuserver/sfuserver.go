@@ -43,9 +43,42 @@ func (s *SFUServer) getOrCreateRoom(roomName string) *room.Room {
 	return createdRoom
 }
 
+func (s *SFUServer) deleteRoom(r *room.Room) {
+        roomName := r.Name
+        delete(s.Rooms, roomName)
+        log.Printf("Room %s deleted.", roomName)
+}
+
+func (s *SFUServer) deleteRoomIfEmpty(r *room.Room) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if r.GetTotalPeers() != 0 {
+		return
+	}
+	
+	s.deleteRoom(r)
+}
+
 // Used by SFUServer to serve signals sent to it via gRPC
 func (s *SFUServer) Signal(stream sfupb.SFUService_SignalServer) error {
 	log.Println("New Signal stream connected")
+	
+	var currentPeer *peer.Peer
+	var currentRoom *room.Room
+	var roomName string
+	var userID string
+
+	defer func() {
+		if (currentPeer != nil) && (currentRoom != nil) {
+			log.Printf("Cleaning up peer %s", userID)
+
+			currentPeer.Close()
+			currentRoom.RemovePeer(userID)
+			s.deleteRoomIfEmpty(currentRoom)
+		}
+
+	}()
 
 	for {
 		req, err := stream.Recv()
@@ -58,15 +91,12 @@ func (s *SFUServer) Signal(stream sfupb.SFUService_SignalServer) error {
 			log.Printf("Error receiving from stream: %v", err)
 			return err
 		}
-		
-		var currentPeer *peer.Peer;
-
-		roomName := req.RoomName
-		currentRoom := s.getOrCreateRoom(roomName)
-		
 
 		if offer := req.GetOffer(); offer != nil {
-			userID := req.UserId
+	                roomName = req.RoomName
+        	        currentRoom = s.getOrCreateRoom(roomName)
+
+			userID = req.UserId
 			fmt.Printf("Received offer from user %s in room %s\n", userID, roomName)
 
 			// Create PeerConnection
@@ -109,6 +139,17 @@ func (s *SFUServer) Signal(stream sfupb.SFUService_SignalServer) error {
 				if err := stream.Send(response); err != nil {
 					log.Println("ICE send error:", err)
 
+				}
+			})
+
+			// Peer state monitoring
+			peerConnection.OnConnectionStateChange(func(state webrtc.PeerConnectionState) {
+				log.Printf("Peer %s state: %s", userID, state.String())
+
+				if state == webrtc.PeerConnectionStateFailed || state == webrtc.PeerConnectionStateDisconnected || state == webrtc.PeerConnectionStateClosed {
+					currentPeer.Close()
+					currentRoom.RemovePeer(userID)
+					s.deleteRoomIfEmpty(currentRoom)
 				}
 			})
 

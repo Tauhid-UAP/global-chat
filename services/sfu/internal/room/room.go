@@ -8,20 +8,41 @@ import (
 
 // Room stores all peers in a room
 type Room struct {
+	Name string
 	Peers map[string]*peer.Peer
 	mu sync.RWMutex
+
+	TotalPeers int
+}
+
+func (r *Room) GetTotalPeers() int {
+	return r.TotalPeers
+}
+
+func (r *Room) SetTotalPeers(totalPeers int) {
+	r.TotalPeers = totalPeers
+}
+
+func (r *Room) IncrementTotalPeers(incrementBy int) {
+	r.SetTotalPeers(r.GetTotalPeers() + incrementBy)
+}
+
+func (r *Room) DecrementTotalPeers(decrementBy int) {
+	r.SetTotalPeers(r.GetTotalPeers() - decrementBy)
 }
 
 func (r *Room) AddPeer(p *peer.Peer) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.Peers[p.UserID] = p
+	r.IncrementTotalPeers(1)
 }
 
 func (r *Room) RemovePeer(userID string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	delete(r.Peers, userID)
+	r.DecrementTotalPeers(1)
 }
 
 func (r *Room) GetPeers() []*peer.Peer {
@@ -38,6 +59,7 @@ func (r *Room) GetPeers() []*peer.Peer {
 
 func CreateRoom(roomName string) *Room {
 	return &Room {
+		Name: roomName,
 		Peers: make(map[string]*peer.Peer),
 	}
 }
