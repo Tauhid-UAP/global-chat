@@ -147,7 +147,7 @@ document.addEventListener("DOMContentLoaded", function () {
 	videoGrid.innerHTML = "";
 
 	socket.send(JSON.stringify({
-		Type: "webrtc.leave"
+		Type: "webrtc.peer_left"
 	}));
     }
 
@@ -189,7 +189,12 @@ document.addEventListener("DOMContentLoaded", function () {
             return;
         }
 
-        socket.send(msg);
+        socket.send({
+	    Type: "chat.message",
+	    Data: {
+		Message: msg
+	    }
+	});
         messageInput.value = "";
     }
 

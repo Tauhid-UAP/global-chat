@@ -20,6 +20,7 @@ import (
 	"github.com/Tauhid-UAP/global-chat/services/chat/core/awsclient"
 	"github.com/Tauhid-UAP/global-chat/services/chat/core/websockethandlers"
 	"github.com/Tauhid-UAP/global-chat/services/chat/core/chat"
+	"github.com/Tauhid-UAP/global-chat/services/chat/core/sfuclient"
 	"github.com/Tauhid-UAP/global-chat/services/chat/core/config"
 )
 
@@ -65,7 +66,7 @@ func main() {
 	log.Printf("STATIC BASE: %s", cfg.StaticAssetBaseURL)
 	protected.HandleFunc("/", handlers.Profile)
 	protected.HandleFunc("/logout", handlers.Logout)
-	// protected.HandleFunc("/chat", handlers.ChatPageHandler(staticAssetBaseURL))
+	
 	protectedHandler := middleware.AuthMiddleware(middleware.CSRFMiddleware(protected))
 	
 	// Routes for both authenticated and anonymous users
@@ -73,6 +74,7 @@ func main() {
 	optionalAuthMux.HandleFunc("/chat", handlers.ChatPageHandler(staticAssetBaseURL))
 
 	hub := chat.CreateHub()
+	sfuClient := sfuclient.NewSFUClient("127.0.0.1:50051")
 	websocketUpgrader := websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool {return true},
 	}
