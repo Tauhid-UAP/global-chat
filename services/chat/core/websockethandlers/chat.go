@@ -68,7 +68,7 @@ func ChatHandler(
 		}
 		client.SFUStream = userSignalStream
 
-		go handleSFUResponse(client)
+		go handleSFUResponses(client)
 
 		userJoinedPayload := chat.CreateWebSocketMessageForUserJoining(userID, userFullName, time.Now().UTC())
 		userJoinedPayloadBytes, _ := json.Marshal(userJoinedPayload)
@@ -87,18 +87,25 @@ func ChatHandler(
 				break
 			}
 
-			var websocketMessage chat.WebSocketMessage
-			if err := json.Unmarshal(messageBytes, &websocketMessage); err != nil {
+			var requestWebsocketMessage chat.RequestWebSocketMessage
+			if err := json.Unmarshal(messageBytes, &requestWebsocketMessage); err != nil {
+				log.Printf("Error unmarshalling websocket message: %v", err)
 				continue
 			}
 
-			switch websocketMessage.Type {
+			switch requestWebsocketMessage.Type {
 
 			case chat.EventChatMessage:
+
+				var chatData map[string]string
+				if err := json.Unmarshal(requestWebsocketMessage.Data, &chatData); err != nil {
+					log.Printf("Error unmarshalling chat data: %v", err)
+					continue
+				}
 				payload := chat.CreateWebSocketMessageForChatMessageData(
 					userID,
 					userFullName,
-					websocketMessage.Data.Message,
+					chatData["Message"],
 					time.Now().UTC(),
 				)
 				log.Printf("Publishing to room: %s", payload)
@@ -112,7 +119,10 @@ func ChatHandler(
 				redisclient.PublishToRoom(ctx, roomName, payloadBytes)
 			case chat.EventWebRTCOffer:
 				var offer chat.OfferPayload
-				json.Unmarshal(websocketMessage.Data, &offer)
+				if err := json.Unmarshal(requestWebsocketMessage.Data, &offer); err != nil {
+					log.Printf("Error unmarshalling WebRTC Offer: %v", err)
+					break
+				}
 
 				req := &sfupb.SignalRequest{
 					RoomName: roomName,
@@ -128,13 +138,16 @@ func ChatHandler(
 
 			case chat.EventWebRTCICECandidate:
 				var iceCandidate sfupb.WebRTCICECandidate
-				json.Unmarshal(websocketMessage.Data, &iceCandidate)
+				if err := json.Unmarshal(requestWebsocketMessage.Data, &iceCandidate); err != nil {
+					log.Printf("Error unmarshalling ICE Candidate: &v", err)
+					break
+				}
 
 				req := &sfupb.SignalRequest{
 					RoomName: roomName,
 					UserId: userID,
 					Payload: &sfupb.SignalRequest_IceCandidate{
-						IceCandidate: &candidate,
+						IceCandidate: &iceCandidate,
 					},
 				}
 
@@ -151,7 +164,7 @@ func ChatHandler(
 	}
 }
 
-func handleSFUResponse(client *chat.Client) {
+func handleSFUResponses(client *chat.Client) {
 	stream := client.SFUStream.Stream
 	websocketConnection := client.Conn
 	for {
@@ -161,10 +174,10 @@ func handleSFUResponse(client *chat.Client) {
 		}
 
 		switch payload := res.Payload.(type) {
-		
+
 		case *sfupb.SignalResponse_Answer:
 			answerMessage := map[string]interface{}{
-				"Type": EventWebRTCAnswer,
+				"Type": chat.EventWebRTCAnswer,
 				"Data": map[string]string{
 					"sdp": payload.Answer.Sdp,
 				},
@@ -172,14 +185,13 @@ func handleSFUResponse(client *chat.Client) {
 
 			bytesMessage, _ := json.Marshal(answerMessage)
 			websocketConnection.WriteMessage(websocket.TextMessage, bytesMessage)
-
 		case *sfupb.SignalResponse_IceCandidate:
 			iceCandidateMessage := map[string]interface{}{
-				"Type": EventWebRTCICECandidate,
+				"Type": chat.EventWebRTCICECandidate,
 				"Data": payload.IceCandidate,
 			}
 
-			bytes, _ := json.Marshal(iceCandidateMessage)
+			bytesMessage, _ := json.Marshal(iceCandidateMessage)
 			websocketConnection.WriteMessage(websocket.TextMessage, bytesMessage)
 		}
 	}

@@ -31,10 +31,10 @@ func main() {
 		log.Printf(".env file not found: %v\n", err)
 	}
 	
-	DATABASE_URL := os.Getenv("DATABASE_URL")
-	log.Printf("DATABASE_URL: %s", DATABASE_URL)
+	DatabaseURL := os.Getenv("DATABASE_URL")
+	log.Println("DatabaseURL: ", DatabaseURL)
 
-	db, err := sql.Open("postgres", DATABASE_URL)
+	db, err := sql.Open("postgres", DatabaseURL)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -74,11 +74,18 @@ func main() {
 	optionalAuthMux.HandleFunc("/chat", handlers.ChatPageHandler(staticAssetBaseURL))
 
 	hub := chat.CreateHub()
-	sfuClient := sfuclient.NewSFUClient("127.0.0.1:50051")
+	SFUGRPCAddress := os.Getenv("SFU_GRPC_ADDRESS")
+	log.Println("SFUGRPCAddress ", SFUGRPCAddress)
+	sfuClient, err := sfuclient.NewSFUClient(SFUGRPCAddress)
+	if err != nil {
+		log.Printf("Error creating SFU client: %v", err)
+		return
+	}
+
 	websocketUpgrader := websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool {return true},
 	}
-	optionalAuthMux.HandleFunc("/ws/chat", websockethandlers.ChatHandler(websocketUpgrader, hub))
+	optionalAuthMux.HandleFunc("/ws/chat", websockethandlers.ChatHandler(websocketUpgrader, hub, sfuClient))
 
 	optionalAuthHandler := middleware.OptionalAuthMiddleware(middleware.CSRFMiddleware(optionalAuthMux))
 
