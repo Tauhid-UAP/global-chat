@@ -2,6 +2,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
     let socket = null;
 
+    let peerConnection = null;
+    let localStream = null;
+    let callActive = false;
+
     const joinDiv = document.getElementById("join");
     const chatDiv = document.getElementById("chat");
     const roomTitle = document.getElementById("room-title");
@@ -13,8 +17,17 @@ document.addEventListener("DOMContentLoaded", function () {
     const joinBtn = document.getElementById("joinBtn");
     const sendBtn = document.getElementById("sendBtn");
 
+    const startCallBtn = document.getElementById("startCallBtn");
+    const endCallBtn = document.getElementById("endCallBtn");
+
+    const videoSection = document.getElementById("video-section");
+    const videoGrid = document.getElementById("video-grid");
+
     joinBtn.addEventListener("click", joinRoom);
     sendBtn.addEventListener("click", sendMessage);
+
+    startCallBtn.addEventListener("click", startCall);
+    endCallBtn.addEventListener("click", endCall);
 
     messageInput.addEventListener("keydown", function (e) {
         if (e.key === "Enter") {
@@ -53,6 +66,119 @@ document.addEventListener("DOMContentLoaded", function () {
         };
     }
 
+    async function startCall() {
+	if (callActive) return;
+
+	callActive = true;
+	
+	startCallBtn.style.display = "none";
+	endCallBtn.style.display = "inline-block";
+	videoSection.style.display = "block";
+
+	localStream = await navigator.mediaDevices.getUserMedia({
+	    video: true,
+	    audio: true
+	});
+	
+	addVideoStream(localStream, userID, userFullName, true);
+	
+	peerConnection = new RTCPeerConnection(null);
+	
+	localStream.getTracks().forEach(track => {
+            peerConnection.addTrack(track, localStream);
+	});
+
+	peerConnection.onicecandidate = event => {
+	    candidate = event.candidate
+	    if (!candidate) {
+	        return
+	    }
+	    
+	    socket.send(JSON.stringify({
+	        Type: "webrtc.ice",
+		Data: event.candidate
+	    }));
+	};
+	
+	peerConnection.ontrack = event => {
+	    const remoteStream = event.streams[0];
+	    const id = event.track.id;
+	    addVideoStream(remoteStream, id, "Participant");
+	};
+
+	peerConnection.onconnectionstatechange = () => {
+	    connectionState = pc.connectionState
+	    if (connectionState === "disconnected" || connectionState === "failed" || connectionState === "closed") {
+	        endCall();
+	    }
+	};
+
+	const offer = await peerConnection.createOffer();
+	await peerConnection.setLocalDescription(offer);
+
+	socket.send(JSON.stringify({
+	    Type: "webrtc.offer",
+	    Data: { sdp: offer.sdp }
+	}));
+    }
+
+    function endCall() {
+        if (!callActive) return;
+
+	callActive = false;
+
+	startCallBtn.style.display = "inline-block";
+	endCallBtn.style.display = "none";
+	videoSection.style.display = "none";
+	
+	if (peerConnection) {
+	    peerConnection.getSenders().forEach(sender => {
+	        if (sender.track) sender.track.stop();
+	    });
+	    peerConnection.close();
+	    peerConnection = null;
+	}
+	
+	if (localStream) {
+	    localStream.getTracks().forEach(track => track.stop());
+	    localStream = null;
+	}
+	
+	videoGrid.innerHTML = "";
+
+	socket.send(JSON.stringify({
+		Type: "webrtc.peer_left"
+	}));
+    }
+
+    function addVideoStream(stream, id, label, muted = false) {
+	if (document.getElementById("video-" + id)) return;
+
+	const wrapper = document.createElement("div");
+	wrapper.className = "video-wrapper";
+	wrapper.id = "video-" + id;
+
+	const video = document.createElement("video");
+	video.srcObject = stream;
+	video.autoplay = true;
+	video.playsInline = true;
+	video.muted = muted;
+	
+	const nameLabel = document.createElement("div");
+	nameLabel.className = "video-label";
+	nameLabel.textContent = label;
+	
+	wrapper.appendChild(video);
+	wrapper.appendChild(nameLabel);
+	videoGrid.appendChild(wrapper);
+    }
+
+    function removeVideo(id) {
+	const el = document.getElementById("video-" + id);
+	
+	if (el) el.remove();
+    }
+
     function sendMessage() {
         if (!socket || socket.readyState !== WebSocket.OPEN) {
             return;
@@ -63,7 +189,12 @@ document.addEventListener("DOMContentLoaded", function () {
             return;
         }
 
-        socket.send(msg);
+        socket.send({
+	    Type: "chat.message",
+	    Data: {
+		Message: msg
+	    }
+	});
         messageInput.value = "";
     }
 
@@ -116,7 +247,7 @@ document.addEventListener("DOMContentLoaded", function () {
 	    messagesDiv.scrollTop = messagesDiv.scrollHeight;
     }
 
-    function onMessage(event) {
+    async function onMessage(event) {
 	    const payload = JSON.parse(event.data);
 	    const payloadType = payload.Type;
 	    const data = payload.Data;
@@ -132,6 +263,29 @@ document.addEventListener("DOMContentLoaded", function () {
 		    case "user.leave":
 			    renderSystemMessage(`${data.User.FullName} left`);
 			    break;
+		    
+		    case "webrtc.answer":
+			    if (peerConnection) {
+				await peerConnection.setRemoteDescription({
+				    type: "answer",
+				    sdp: data.sdp
+				});
+			    }
+			    break;
+		    
+		    case "webrtc.ice":
+		        if (peerConnection) {
+			    try {
+				await peerConnection.addIceCandidate(data);
+			    } catch (err) {
+				console.error("ICE error", err);
+			    }
+			}
+			break;
+		    
+		    case "webrtc.peer_left":
+			removeVideo(data.userID);
+			break;
 	    }
     }
 

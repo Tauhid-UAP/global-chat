@@ -1,5 +1,5 @@
-github.com/Tauhid-UAP/global-chat/proto v1.0.0 h1:Yk7l17LVpQ3u/AC9gxwB+huai+rvWBgddLD7VfAC358=
-github.com/Tauhid-UAP/global-chat/proto v1.0.0/go.mod h1:CXgD3L7sJp/DAmgoV+c7WWYmm5KUAlPZbqUKsztoq9M=
+github.com/Tauhid-UAP/global-chat/proto v1.0.2 h1:HSRo+RWV3rGOgqiMTlu42Cs8hARmTsvz4w7unmkAZYE=
+github.com/Tauhid-UAP/global-chat/proto v1.0.2/go.mod h1:CXgD3L7sJp/DAmgoV+c7WWYmm5KUAlPZbqUKsztoq9M=
 github.com/aws/aws-sdk-go-v2 v1.41.2 h1:LuT2rzqNQsauaGkPK/7813XxcZ3o3yePY0Iy891T2ls=
 github.com/aws/aws-sdk-go-v2 v1.41.2/go.mod h1:IvvlAZQXvTXznUPfRVfryiG1fbzE2NGK6m9u39YQ+S4=
 github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.5 h1:zWFmPmgw4sveAYi1mRqG+E/g0461cJ5M4bJ8/nc6d3Q=

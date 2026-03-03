@@ -5,6 +5,8 @@ import (
 	"log"
 
 	"github.com/gorilla/websocket"
+
+	"github.com/Tauhid-UAP/global-chat/services/chat/core/sfuclient"
 )
 
 type Client struct {
@@ -13,6 +15,8 @@ type Client struct {
 	UserID string
 	UserFullName string
 	RoomName string
+
+	SFUStream *sfuclient.UserSignalStream
 }
 
 func (client *Client) ReceiveMessages() {
@@ -30,3 +34,4 @@ func (client *Client) ReceiveMessages() {
 		}
 	}
 }
+

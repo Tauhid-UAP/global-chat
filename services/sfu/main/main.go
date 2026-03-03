@@ -1,10 +1,12 @@
 package main
 
 import (
+	"os"
 	"fmt"
 	"log"
 	"net"
-
+	
+	"github.com/joho/godotenv"
 	"google.golang.org/grpc"
 
 	"github.com/Tauhid-UAP/global-chat/services/sfu/internal/sfuserver"
@@ -13,9 +15,13 @@ import (
 )
 
 func main() {
-	port := 50051
-	address := fmt.Sprintf(":%d", port)
-	listener, err := net.Listen("tcp", address)
+	if err := godotenv.Load(); err != nil {
+		log.Printf(".env file not found: %v\n", err)
+	}
+
+	GRPCAddress := os.Getenv("GRPC_ADDRESS")
+	log.Println("GRPCAddress ", GRPCAddress)
+	listener, err := net.Listen("tcp", GRPCAddress)
 	if err != nil {
 		log.Fatalf("Failed to listen: %v", err)
 	}
@@ -23,7 +29,7 @@ func main() {
 	grpcServer := grpc.NewServer()
 	sfupb.RegisterSFUServiceServer(grpcServer, sfuserver.NewSFUServer())
 
-	fmt.Printf("SFU gRPC server running on port %d\n", port)
+	fmt.Println("SFU gRPC server running on ", GRPCAddress)
 
 	if err := grpcServer.Serve(listener); err != nil {
 		log.Fatalf("Failed to serve gRPC server: %v", err)

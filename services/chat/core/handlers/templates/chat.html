@@ -17,7 +17,66 @@
         box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     }
 
-    /* Join section */
+    /* ================= VIDEO SECTION (ADDED SAFELY) ================= */
+
+    #call-controls {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 8px;
+    }
+
+    #startCallBtn,
+    #endCallBtn {
+        padding: 6px 10px;
+        font-size: 0.85rem;
+        cursor: pointer;
+    }
+
+    #endCallBtn {
+        background-color: #ef4444;
+        color: white;
+        border: none;
+        display: none;
+    }
+
+    #video-section {
+        display: none;
+        margin-bottom: 10px;
+    }
+
+    #video-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: 6px;
+    }
+
+    .video-wrapper {
+        position: relative;
+        background: black;
+        border-radius: 6px;
+        overflow: hidden;
+        aspect-ratio: 16/9;
+    }
+
+    .video-wrapper video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .video-label {
+        position: absolute;
+        bottom: 4px;
+        left: 4px;
+        background: rgba(0,0,0,0.6);
+        color: white;
+        font-size: 0.7rem;
+        padding: 2px 4px;
+        border-radius: 4px;
+    }
+
+    /* ================= YOUR ORIGINAL CHAT UI (RESTORED EXACTLY) ================= */
+
     #join {
         display: flex;
         gap: 8px;
@@ -35,7 +94,6 @@
         cursor: pointer;
     }
 
-    /* Chat section */
     #chat {
         display: none;
         flex-direction: column;
@@ -50,7 +108,7 @@
     #messages {
         flex: 1;
         display: flex;
-        flex-direction: column; /* CRITICAL */
+        flex-direction: column;
         overflow-y: auto;
         padding: 8px;
         border: 1px solid #ddd;
@@ -59,7 +117,6 @@
         background-color: #fafafa;
     }
 
-    /* Message wrapper */
     .message {
         padding: 6px 10px;
         margin-bottom: 6px;
@@ -71,58 +128,51 @@
     }
 
     .message.own {
-	align-self: flex-end;
-	background-color: #dbeafe; /* light blue */
+        align-self: flex-end;
+        background-color: #dbeafe;
     }
 
-    .message.own.message-time {
-	color: #4b5563;
+    .message.own .message-time {
+        color: #4b5563;
     }
 
     @keyframes systemFadeSlide {
-	from {
-		opacity: 0;
-		transform: translateY(-6px);
-	}
-	to {
-		opacity: 1;
-		transform: translateY(0);
-	}
+        from {
+            opacity: 0;
+            transform: translateY(-6px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
     }
 
     .system-message {
-	align-self: center;
-	margin: 8px 0;
-	padding: 4px 12px;
-
-	font-size: 0.85rem;
-	color: #6b7280;
-	background-color: #f3f4f6;
-
-	border-radius: 9999px;
-	text-align: center;
-	white-space: nowrap;
-
-	animation: systemFadeSlide 0.25s ease-out;
+        align-self: center;
+        margin: 8px 0;
+        padding: 4px 12px;
+        font-size: 0.85rem;
+        color: #6b7280;
+        background-color: #f3f4f6;
+        border-radius: 9999px;
+        text-align: center;
+        white-space: nowrap;
+        animation: systemFadeSlide 0.25s ease-out;
     }
 
-    /* Full name */
     .user-full-name {
         font-weight: 600;
         margin-right: 2px;
     }
 
-    /* Colon separator */
     .message-separator {
         margin-right: 2px;
     }
 
-    /* Message text */
     .message-text {
         white-space: pre-wrap;
     }
 
-    /* Timestamp */
     .message-time {
         margin-left: 6px;
         font-size: 0.75rem;
@@ -156,7 +206,6 @@
 
 <div id="container">
 
-    <!-- Join Room -->
     <div id="join">
         <input
             type="text"
@@ -167,9 +216,19 @@
         <button id="joinBtn">Join</button>
     </div>
 
-    <!-- Chat UI -->
     <div id="chat" style="display: none;">
         <div id="room-title"></div>
+
+        <!-- Added safely -->
+        <div id="call-controls">
+            <button id="startCallBtn">Start Call</button>
+            <button id="endCallBtn">End Call</button>
+        </div>
+
+        <div id="video-section">
+            <div id="video-grid"></div>
+        </div>
+
         <div id="messages"></div>
 
         <div id="input-area">
@@ -187,8 +246,9 @@
 </div>
 
 <script>
-	const userID = "{{.User.ID}}";
+    const userID = "{{.User.ID}}";
+    const userFullName = "{{.User.FirstName}}" + " " + ".User.LastName"
 </script>
-<script src="{{.StaticAssetBaseURL}}/js/chat.js" defer> </script>
-{{end}}
+<script src="{{.StaticAssetBaseURL}}/js/chat.js" defer></script>
 
+{{end}}

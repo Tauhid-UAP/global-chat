@@ -20,6 +20,7 @@ import (
 	"github.com/Tauhid-UAP/global-chat/services/chat/core/awsclient"
 	"github.com/Tauhid-UAP/global-chat/services/chat/core/websockethandlers"
 	"github.com/Tauhid-UAP/global-chat/services/chat/core/chat"
+	"github.com/Tauhid-UAP/global-chat/services/chat/core/sfuclient"
 	"github.com/Tauhid-UAP/global-chat/services/chat/core/config"
 )
 
@@ -30,10 +31,10 @@ func main() {
 		log.Printf(".env file not found: %v\n", err)
 	}
 	
-	DATABASE_URL := os.Getenv("DATABASE_URL")
-	log.Printf("DATABASE_URL: %s", DATABASE_URL)
+	DatabaseURL := os.Getenv("DATABASE_URL")
+	log.Println("DatabaseURL: ", DatabaseURL)
 
-	db, err := sql.Open("postgres", DATABASE_URL)
+	db, err := sql.Open("postgres", DatabaseURL)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -65,7 +66,7 @@ func main() {
 	log.Printf("STATIC BASE: %s", cfg.StaticAssetBaseURL)
 	protected.HandleFunc("/", handlers.Profile)
 	protected.HandleFunc("/logout", handlers.Logout)
-	// protected.HandleFunc("/chat", handlers.ChatPageHandler(staticAssetBaseURL))
+	
 	protectedHandler := middleware.AuthMiddleware(middleware.CSRFMiddleware(protected))
 	
 	// Routes for both authenticated and anonymous users
@@ -73,10 +74,18 @@ func main() {
 	optionalAuthMux.HandleFunc("/chat", handlers.ChatPageHandler(staticAssetBaseURL))
 
 	hub := chat.CreateHub()
+	SFUGRPCAddress := os.Getenv("SFU_GRPC_ADDRESS")
+	log.Println("SFUGRPCAddress ", SFUGRPCAddress)
+	sfuClient, err := sfuclient.NewSFUClient(SFUGRPCAddress)
+	if err != nil {
+		log.Printf("Error creating SFU client: %v", err)
+		return
+	}
+
 	websocketUpgrader := websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool {return true},
 	}
-	optionalAuthMux.HandleFunc("/ws/chat", websockethandlers.ChatHandler(websocketUpgrader, hub))
+	optionalAuthMux.HandleFunc("/ws/chat", websockethandlers.ChatHandler(websocketUpgrader, hub, sfuClient))
 
 	optionalAuthHandler := middleware.OptionalAuthMiddleware(middleware.CSRFMiddleware(optionalAuthMux))
 
