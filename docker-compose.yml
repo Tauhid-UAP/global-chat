@@ -20,6 +20,17 @@ services:
       - redisdata:/data
     command: redis-server --save 60 1 --loglevel warning
 
+  sfu:
+    build:
+      context: .
+      dockerfile: ./services/sfu/Dockerfile
+
+    ports:
+      - "50051:50051"
+    env_file:
+      - ./services/sfu/.env
+    restart: unless-stopped
+
   web:
     build:
       context: .
@@ -32,6 +43,8 @@ services:
       db:
         condition: service_healthy
       redis:
+        condition: service_started
+      sfu:
         condition: service_started
     volumes:
       - ~/.aws:/root/.aws:ro
