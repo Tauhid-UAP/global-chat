@@ -189,12 +189,12 @@ document.addEventListener("DOMContentLoaded", function () {
             return;
         }
 
-        socket.send({
+        socket.send(JSON.stringify({
 	    Type: "chat.message",
 	    Data: {
 		Message: msg
 	    }
-	});
+	}));
         messageInput.value = "";
     }
 
