@@ -39,10 +39,21 @@ func (r *Room) AddPeer(p *peer.Peer) {
 }
 
 func (r *Room) RemovePeer(userID string) {
+	delete(r.Peers, userID)
+}
+
+func (r *Room) RemovePeerIfExists(userID string) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	delete(r.Peers, userID)
+
+	if _, ok := r.Peers[userID]; !ok {
+		return false
+	}
+	
+	r.RemovePeer(userID)
 	r.DecrementTotalPeers(1)
+
+	return true
 }
 
 func (r *Room) GetPeers() []*peer.Peer {

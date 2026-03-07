@@ -5,6 +5,8 @@ document.addEventListener("DOMContentLoaded", function () {
     let peerConnection = null;
     let localStream = null;
     let callActive = false;
+    let hasSetRemoteDescription = false;
+    let bufferedICECandidates = [];
 
     const joinDiv = document.getElementById("join");
     const chatDiv = document.getElementById("chat");
@@ -101,13 +103,16 @@ document.addEventListener("DOMContentLoaded", function () {
 	};
 	
 	peerConnection.ontrack = event => {
+	    console.log("Track event: ", event);
+	    console.log("Remote streams: ", event.streams);
 	    const remoteStream = event.streams[0];
+	    console.log("Remote stream: ", remoteStream);
 	    const id = event.track.id;
 	    addVideoStream(remoteStream, id, "Participant");
 	};
 
 	peerConnection.onconnectionstatechange = () => {
-	    connectionState = pc.connectionState
+	    connectionState = peerConnection.connectionState
 	    if (connectionState === "disconnected" || connectionState === "failed" || connectionState === "closed") {
 	        endCall();
 	    }
@@ -138,6 +143,9 @@ document.addEventListener("DOMContentLoaded", function () {
 	    peerConnection.close();
 	    peerConnection = null;
 	}
+
+	hasSetRemoteDescription = false;
+	bufferedICECandidates = [];
 	
 	if (localStream) {
 	    localStream.getTracks().forEach(track => track.stop());
@@ -189,12 +197,12 @@ document.addEventListener("DOMContentLoaded", function () {
             return;
         }
 
-        socket.send({
+        socket.send(JSON.stringify({
 	    Type: "chat.message",
 	    Data: {
 		Message: msg
 	    }
-	});
+	}));
         messageInput.value = "";
     }
 
@@ -265,19 +273,36 @@ document.addEventListener("DOMContentLoaded", function () {
 			    break;
 		    
 		    case "webrtc.answer":
-			    if (peerConnection) {
-				await peerConnection.setRemoteDescription({
-				    type: "answer",
-				    sdp: data.sdp
-				});
+			    if (!peerConnection) {
+			        break;
 			    }
+			    await peerConnection.setRemoteDescription({
+				type: "answer",
+				sdp: data.sdp
+			    });
+
+			    hasSetRemoteDescription = true;
+				
+			    for (const c of bufferedICECandidates) {
+				await peerConnection.addIceCandidate(c);
+			    }
+
+			    bufferedICECandidates = [];
+
 			    break;
 		    
 		    case "webrtc.ice":
 		        if (peerConnection) {
 			    try {
-				await peerConnection.addIceCandidate(data);
+				if (hasSetRemoteDescription) {
+					await peerConnection.addIceCandidate(data);
+					break;
+				}
+					
+				bufferedICECandidates.push(data)
+
 			    } catch (err) {
+				console.log("data: ", data);
 				console.error("ICE error", err);
 			    }
 			}
