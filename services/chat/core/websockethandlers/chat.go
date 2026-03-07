@@ -186,9 +186,14 @@ func handleSFUResponses(client *chat.Client) {
 			bytesMessage, _ := json.Marshal(answerMessage)
 			websocketConnection.WriteMessage(websocket.TextMessage, bytesMessage)
 		case *sfupb.SignalResponse_IceCandidate:
+			iceCandidate := payload.IceCandidate
 			iceCandidateMessage := map[string]interface{}{
 				"Type": chat.EventWebRTCICECandidate,
-				"Data": payload.IceCandidate,
+				"Data": map[string]interface{}{
+					"candidate": iceCandidate.Candidate,
+					"sdpMid": iceCandidate.SdpMid,
+					"sdpMLineIndex": iceCandidate.SdpMlineIndex,
+				},
 			}
 
 			bytesMessage, _ := json.Marshal(iceCandidateMessage)
