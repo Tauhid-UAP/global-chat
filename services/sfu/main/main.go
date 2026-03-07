@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"strconv"
 	
 	"github.com/joho/godotenv"
 	"google.golang.org/grpc"
@@ -53,13 +54,19 @@ func main() {
                 webrtc.NetworkTypeUDP4,
         })
 
+	webRTCSettingEngine.SetEphemeralUDPPortRange(50000, 50100)
+
         webRTCAPI := webrtc.NewAPI(
                 webrtc.WithMediaEngine(webRTCMediaEngine),
                 webrtc.WithInterceptorRegistry(interceptorRegistry),
                 webrtc.WithSettingEngine(webRTCSettingEngine),
         )
-
-	sfupb.RegisterSFUServiceServer(grpcServer, sfuserver.NewSFUServer(webRTCAPI))
+	
+	maxPeersPerRoom, err := strconv.Atoi(os.Getenv("MAX_PEERS_PER_ROOM"))
+	if err != nil {
+		log.Fatalf("Failed to get max peers per room: %v", err)
+	}
+	sfupb.RegisterSFUServiceServer(grpcServer, sfuserver.NewSFUServer(webRTCAPI, maxPeersPerRoom))
 
 	fmt.Println("SFU gRPC server running on ", GRPCAddress)
 
