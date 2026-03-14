@@ -1,7 +1,6 @@
 services:
   db:
     image: postgres:16
-    network_mode: host
     env_file: ./services/chat/.env
     ports:
       - "${POSTGRES_PORT}:5432"
@@ -15,7 +14,6 @@ services:
 
   redis:
     image: redis:7-alpine
-    network_mode: host
     ports:
       - "6379:6379"
     volumes:
@@ -27,7 +25,6 @@ services:
       context: .
       dockerfile: ./services/sfu/Dockerfile
 
-    network_mode: host
     ports:
       - "50000-50100:50000-50100/udp"
     env_file:
@@ -39,7 +36,6 @@ services:
       context: .
       dockerfile: ./services/chat/Dockerfile
 
-    network_mode: host
     ports:
       - "8000:8000"
     env_file:
@@ -59,7 +55,6 @@ services:
   migrate:
     build: .
 
-    network_mode: host
     profiles: ["tools"]
     env_file:
       - ./services/chat/.env
