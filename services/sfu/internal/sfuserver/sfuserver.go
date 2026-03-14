@@ -1,6 +1,7 @@
 package sfuserver
 
 import (
+	"fmt"
 	"log"
 	"io"
 	"sync"
@@ -141,13 +142,13 @@ func (s *SFUServer) Signal(stream sfupb.SFUService_SignalServer) error {
 		}
 		
 		if offer := req.GetOffer(); offer != nil {
-	                roomName = req.RoomName
-        	        currentRoom = s.getOrCreateRoom(roomName, s.GetMaxPeersPerRoom(), s.WebRTCAPI)
+			roomName = req.RoomName
+			currentRoom = s.getOrCreateRoom(roomName, s.GetMaxPeersPerRoom(), s.WebRTCAPI)
 			log.Println("currentRoom: ", currentRoom)
 			log.Println("currentPeers: ", currentRoom.GetPeers())
 
 			userID = req.UserId
-			log.Printf("Received offer from user %s in room %s\n", userID, roomName)
+			// log.Printf("Received offer from user %s in room %s\n", userID, roomName)
 			
 			newPeer, err := currentRoom.InitiatePeerForRoom(userID, stream)
 			if err != nil {
@@ -162,7 +163,7 @@ func (s *SFUServer) Signal(stream sfupb.SFUService_SignalServer) error {
 			
 			// ICE Trickling: Send candidates to signalling server
 			peerConnection.OnICECandidate(func(c *webrtc.ICECandidate) {
-				log.Println("Gathered new ICE Candidate: ", c)
+				// log.Println("Gathered new ICE Candidate: ", c)
 				if c == nil {
 					return
 				}
@@ -209,7 +210,7 @@ func (s *SFUServer) Signal(stream sfupb.SFUService_SignalServer) error {
 				localTrack, err := webrtc.NewTrackLocalStaticRTP(
 					remoteTrack.Codec().RTPCodecCapability,
 					remoteTrack.ID(),
-					remoteTrack.StreamID(),
+					fmt.Sprintf("%s-participant-%s", remoteTrack.StreamID(), userID),
 				)
 				if err != nil {
 					log.Printf("Error creating local track for remote peer: %s | Error: %v\n", userID, err)
@@ -239,6 +240,43 @@ func (s *SFUServer) Signal(stream sfupb.SFUService_SignalServer) error {
 
 			hasSetRemoteDescription = true
 
+			for _, transceiver := range peerConnection.GetTransceivers() {
+				if transceiver.Direction() != webrtc.RTPTransceiverDirectionSendonly {
+					continue
+				}
+		
+				// Create a dummy local track matching the transceiver's codec kind.
+				// This initializes the RTPSender's internal state (SSRC, etc.)
+				var track *webrtc.TrackLocalStaticRTP
+				var err error
+				
+				transceiverKind := transceiver.Kind()
+				mid := transceiver.Mid()
+				switch transceiverKind {
+				case webrtc.RTPCodecTypeAudio:
+					track, _ = webrtc.NewTrackLocalStaticRTP(
+						webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeOpus},
+						fmt.Sprintf("placeholder-audio-%s", mid),
+						fmt.Sprintf("placeholder-stream-%s", mid),
+					)
+					
+				case webrtc.RTPCodecTypeVideo:
+					track, _ = webrtc.NewTrackLocalStaticRTP(
+						webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeVP8},
+						fmt.Sprintf("placeholder-video-%s", mid),
+						fmt.Sprintf("placeholder-stream-%s", mid),
+					)					
+				}
+
+				_, err = peerConnection.AddTrack(track)
+				if err != nil {
+					log.Printf("Error adding dummy track: %v", err)
+					return err
+				}
+			}
+
+			currentRoom.SendExistingForwardedTracksToPeer(currentPeer)
+
 			// flush buffered ICE
 			for _, candidate := range bufferedICECandidates {
 				if err := peerConnection.AddICECandidate(candidate); err != nil {
@@ -260,6 +298,32 @@ func (s *SFUServer) Signal(stream sfupb.SFUService_SignalServer) error {
 				log.Printf("Failed to set local description: %v", err)
 				return err
 			}
+			
+			// for _, transceiver := range peerConnection.GetTransceivers() {
+			// 	if transceiver.Direction() != webrtc.RTPTransceiverDirectionSendonly {
+			// 		continue
+			// 	}
+			
+			// 	mid := *transceiver.Mid()
+			
+			// 	sender := transceiver.Sender()
+			
+			// 	senderSlot := &peer.SenderSlot{
+			// 		Sender: sender,
+			// 		Mid:    mid,
+			// 	}
+				
+			// 	transceiverKind := transceiver.Kind()
+			// 	switch transceiverKind {
+			// 	case webrtc.RTPCodecTypeAudio:
+			// 		currentPeer.AudioSenderSlots = append(currentPeer.AudioSenderSlots, senderSlot)
+			// 		break
+				
+			// 	case webrtc.RTPCodecTypeVideo:
+			// 		currentPeer.VideoSenderSlots = append(currentPeer.VideoSenderSlots, senderSlot)
+			// 		break
+			// 	}
+			// }
 
 			// Send answer back
 			response := &sfupb.SignalResponse{
@@ -282,7 +346,7 @@ func (s *SFUServer) Signal(stream sfupb.SFUService_SignalServer) error {
 		}
 
 		if ice := req.GetIceCandidate(); ice != nil {
-			log.Println("Received remote ICE Candidate: ", ice)
+			// log.Println("Received remote ICE Candidate: ", ice)
 			// Manually convert SdpMlineIndex to uint16 because Pion uses uint16 but Protobuf does not support uint16.
 			mLineIndex := uint16(ice.SdpMlineIndex)
 			
@@ -302,7 +366,7 @@ func (s *SFUServer) Signal(stream sfupb.SFUService_SignalServer) error {
 			if err != nil {
 				log.Printf("Error adding ICE candidate: %s | %v", webRTCICECandidate, err)
 			}
-			log.Println("Added ICE candidate from remote")
+			// log.Println("Added ICE candidate from remote")
 		}
 	}
 }

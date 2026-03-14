@@ -3,10 +3,15 @@ document.addEventListener("DOMContentLoaded", function () {
     let socket = null;
 
     let peerConnection = null;
+    let dataChannel = null;
     let localStream = null;
     let callActive = false;
     let hasSetRemoteDescription = false;
     let bufferedICECandidates = [];
+
+    let midToParticipant = {};
+    let participantStreams = {};
+    let pendingTracks = {};
 
     const joinDiv = document.getElementById("join");
     const chatDiv = document.getElementById("chat");
@@ -68,6 +73,20 @@ document.addEventListener("DOMContentLoaded", function () {
         };
     }
 
+    function getOrCreateMediaStreamForParticipantId(participantId) {
+		let participantStream = participantStreams[participantId]
+		if (participantStream) {
+			return participantStream;
+		}
+
+		participantStream = new MediaStream();
+		participantStreams[participantId] = participantStream;
+
+		addVideoStream(participantStream, participantId, "Participant - " + participantId);
+		
+		return participantStream;
+    }
+
     async function startCall() {
 	if (callActive) return;
 
@@ -90,6 +109,13 @@ document.addEventListener("DOMContentLoaded", function () {
             peerConnection.addTrack(track, localStream);
 	});
 
+	const max_participants = 10;
+	const max_remote_participants = max_participants - 1;
+	for (let i=0; i < max_remote_participants; i++) {
+		peerConnection.addTransceiver("audio", { direction: "recvonly" });
+		peerConnection.addTransceiver("video", { direction: "recvonly" });
+	}
+
 	peerConnection.onicecandidate = event => {
 	    candidate = event.candidate
 	    if (!candidate) {
@@ -104,12 +130,45 @@ document.addEventListener("DOMContentLoaded", function () {
 	
 	peerConnection.ontrack = event => {
 	    console.log("Track event: ", event);
-	    console.log("Remote streams: ", event.streams);
-	    const remoteStream = event.streams[0];
-	    console.log("Remote stream: ", remoteStream);
-	    const id = event.track.id;
-	    addVideoStream(remoteStream, id, "Participant");
+	    const mid = event.transceiver.mid;
+	    const track = event.track
+	    console.log("Track event - mid: ", mid, " | Kind: ", track.kind);
+	    const participantId = midToParticipant[mid];
+	    if (!participantId) {
+	        pendingTracks[mid] = track;
+		console.log("No participant ID. Track queued.");
+		return;
+	    }
+	    
+	    const participantStream = getOrCreateMediaStreamForParticipantId(participantId);
+
+	    console.log("Adding track to stream");
+	    participantStream.addTrack(track);
 	};
+
+	dataChannel = peerConnection.createDataChannel("track-info");
+	dataChannel.onmessage = event => {
+		const msg = JSON.parse(event.data);
+		console.log("New data channel message: ", msg)
+		if (msg.Type === "track-info") {
+			const mid = msg.Mid;
+			const participantId = msg.ParticipantID;
+			midToParticipant[mid] = participantId;
+			const participantStream = getOrCreateMediaStreamForParticipantId(participantId);
+			
+			const pendingTrack = pendingTracks[mid];
+			if (!pendingTrack) {
+				console.log("No pending tracks.");
+				return;
+			}
+
+			console.log("Adding track to stream");
+			console.log("Media stream: ", participantStream);
+			participantStream.addTrack(pendingTrack);
+			delete pendingTracks[mid];
+			return;
+		}
+	}
 
 	peerConnection.onconnectionstatechange = () => {
 	    connectionState = peerConnection.connectionState
@@ -144,6 +203,14 @@ document.addEventListener("DOMContentLoaded", function () {
 	    peerConnection = null;
 	}
 
+	if (dataChannel) {
+		dataChannel = null;
+	}
+
+	midToParticipant = {};
+	pendingTracks = {};
+	participantStreams = {}
+
 	hasSetRemoteDescription = false;
 	bufferedICECandidates = [];
 	
@@ -160,31 +227,30 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function addVideoStream(stream, id, label, muted = false) {
-	if (document.getElementById("video-" + id)) return;
+	    if (document.getElementById("video-" + id)) return;
+	    const wrapper = document.createElement("div");
+	    wrapper.className = "video-wrapper";
+	    wrapper.id = "video-" + id;
 
-	const wrapper = document.createElement("div");
-	wrapper.className = "video-wrapper";
-	wrapper.id = "video-" + id;
+	    const video = document.createElement("video");
+	    video.srcObject = stream;
+	    video.autoplay = true;
+	    video.playsInline = true;
+	    video.muted = muted;
 
-	const video = document.createElement("video");
-	video.srcObject = stream;
-	video.autoplay = true;
-	video.playsInline = true;
-	video.muted = muted;
-	
-	const nameLabel = document.createElement("div");
-	nameLabel.className = "video-label";
-	nameLabel.textContent = label;
-	
-	wrapper.appendChild(video);
-	wrapper.appendChild(nameLabel);
-	videoGrid.appendChild(wrapper);
+	    const nameLabel = document.createElement("div");
+	    nameLabel.className = "video-label";
+	    nameLabel.textContent = label;
+	    
+	    wrapper.appendChild(video);
+	    wrapper.appendChild(nameLabel);
+	    videoGrid.appendChild(wrapper);
     }
 
     function removeVideo(id) {
-	const el = document.getElementById("video-" + id);
-	
-	if (el) el.remove();
+	    const el = document.getElementById("video-" + id);
+
+	    if (el) el.remove();
     }
 
     function sendMessage() {

@@ -111,6 +111,42 @@ func (r *Room) InitiatePeerForRoom(userID string, stream sfupb.SFUService_Signal
 		return nil, err
 	}
 
+	// Create data channel for sending track metadata to the browser
+	// dataChannel, err := peerConnection.CreateDataChannel("track-info", nil)
+	// if err != nil {
+	// 	log.Printf("Failed to create data channel for peer - %s | %v\n", userID, err)
+	// 	return nil, err
+	// }
+
+	// audioSenderSlots := []*peer.SenderSlot{}
+	// videoSenderSlots := []*peer.SenderSlot{}
+	// for i := 0; i < r.GetMaxPeers(); i++ {
+	// 	audioTrack, _ := webrtc.NewTrackLocalStaticRTP(
+	// 		webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeOpus},
+	// 		"audio",
+	// 		"sfu",
+	// 	)
+
+	// 	peerConnection.AddTrack(audioTrack)
+
+	// 	// audioSender, _ := peerConnection.AddTrack(audioTrack)
+
+	// 	// audioSender.ReplaceTrack(nil)
+	
+	// 	videoTrack, _ := webrtc.NewTrackLocalStaticRTP(
+	// 		webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeVP8},
+	// 		"video",
+	// 		"sfu",
+	// 	)
+
+	// 	peerConnection.AddTrack(videoTrack)
+
+	// 	// videoSender, _ := peerConnection.AddTrack(videoTrack)
+	
+	// 	// videoSender.ReplaceTrack(nil)
+	// }
+
+	/*
 	// receivers (browser -> SFU)
 
 	_, err = peerConnection.AddTransceiverFromKind(
@@ -179,10 +215,51 @@ func (r *Room) InitiatePeerForRoom(userID string, stream sfupb.SFUService_Signal
 		AudioSenderSlots: audioSenderSlots,
 		VideoSenderSlots: videoSenderSlots,
 	}
+	*/
+
+	newPeer := &peer.Peer{
+		UserID: userID,
+		PeerConnection: peerConnection,
+		Stream: stream,
+		// DataChannel: dataChannel,
+		// AudioSenderSlots: []*peer.SenderSlot{},
+		// VideoSenderSlots: []*peer.SenderSlot{},
+	}
+
+	peerConnection.OnDataChannel(func(dataChannel *webrtc.DataChannel) {
+		log.Printf("Data channel received for peer - %s\n", userID)
+		newPeer.DataChannel = dataChannel
+	
+		dataChannel.OnOpen(func() {
+			log.Printf("Data channel opened for peer - %s\n", userID)
+			// Store the channel on the peer for later use
+	
+			total, failureCount, errs := newPeer.FlushPendingTrackInfo()
+			log.Printf("Flushed %d track info for peer - %s\n", total, userID)
+			if failureCount > 0 {
+				for _, err := range errs {
+					log.Printf("Flush error: %v\n", err)
+				}
+			}
+		})
+	})
+
+	// dataChannel.OnOpen(func() {
+	// 	log.Printf("Data channel opened for peer - %s\n", userID)
+
+	// 	total, failure_count, errs := newPeer.FlushPendingTrackInfo()
+
+	// 	log.Printf("Successfully flushed %d track info for peer - %s\n", total, userID)
+
+	// 	if failure_count > 0 {
+	// 		log.Printf("Failed to flush %d track info for peer - %s\n", failure_count, userID)
+	// 		for _, err := range errs {
+	// 			log.Printf("Flush error: %v\n", err)
+	// 		}
+	// 	}
+	// })
 	
 	r.AddPeer(newPeer)
-
-	r.SendExistingForwardedTracksToPeer(newPeer)
 
 	return newPeer, nil
 }
@@ -192,14 +269,20 @@ func (r *Room) AddForwardedTrack(forwardedTrack *ForwardedTrack) {
 	log.Println("Added forwarded track")
 }
 
-func (r *Room) AttachForwardedTrackToPeers(forwardedTrack *ForwardedTrack) {
-	log.Println("Attaching forwarded track to peers")
+func (r *Room) SendForwardedTrackToPeers(forwardedTrack *ForwardedTrack) {
+	log.Println("Sending forwarded track to all peers")
 	for _, p := range r.Peers {
-		if p.UserID == forwardedTrack.PublisherID {
+		userID := p.UserID
+		if userID == forwardedTrack.PublisherID {
 			continue
 		}
 		
-		sendForwardedTrackToPeer(forwardedTrack, p)
+		if err := sendForwardedTrackToPeer(forwardedTrack, p); err != nil {
+			log.Printf("Error sending forwarded track to peer - %s | %v\n", userID, err)
+			continue
+		}
+
+		log.Printf("Sent forwarded track to peer - %s\n", userID)
 	}
 }
 
@@ -207,49 +290,120 @@ func (r *Room) PerformNewForwardedTrackOperations(forwardedTrack *ForwardedTrack
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.AddForwardedTrack(forwardedTrack)
-	r.AttachForwardedTrackToPeers(forwardedTrack)
+	r.SendForwardedTrackToPeers(forwardedTrack)
 }
 
 func (r *Room) SendExistingForwardedTracksToPeer(p *peer.Peer) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	userID := p.UserID
 	for _, forwardedTrack := range r.ForwardedTracks {
-		if forwardedTrack.PublisherID == p.UserID {
+		if forwardedTrack.PublisherID == userID {
 			continue
 		}
 
-		sendForwardedTrackToPeer(forwardedTrack, p)
+		if err := sendForwardedTrackToPeer(forwardedTrack, p); err != nil {
+			log.Printf("Error sending existing forwarded track to peer - %s | %v\n", userID, err)
+			continue
+		}
+
+		log.Printf("Sent existing forwarded track to peer - %s\n", userID)
 	}
 }
 
-func sendForwardedTrackToPeer(forwardedTrack *ForwardedTrack, p *peer.Peer) {
-	var senderSlot *peer.SenderSlot
+// func sendForwardedTrackToPeer(forwardedTrack *ForwardedTrack, p *peer.Peer) error {
+// 	var senderSlot *peer.SenderSlot
 
-	switch forwardedTrack.Kind {
-		case webrtc.RTPCodecTypeAudio:
-			senderSlot = getFreeSenderSlot(p.AudioSenderSlots)
+// 	forwardedTrackKind := forwardedTrack.Kind
+// 	switch forwardedTrackKind {
+// 		case webrtc.RTPCodecTypeAudio:
+// 			senderSlot = getFreeSenderSlot(p.AudioSenderSlots)
 
-		case webrtc.RTPCodecTypeVideo:
-			senderSlot = getFreeSenderSlot(p.VideoSenderSlots)
+// 		case webrtc.RTPCodecTypeVideo:
+// 			senderSlot = getFreeSenderSlot(p.VideoSenderSlots)
 
-		default:
-			return
+// 		default:
+// 			return errors.New("Invalid kind: " + forwardedTrackKind.String())
+// 	}
+
+// 	if senderSlot == nil {
+// 		return errors.New("No sender slot")
+// 	}
+
+// 	sender := senderSlot.Sender
+
+// 	err := sender.ReplaceTrack(forwardedTrack.LocalTrack)
+// 	if err != nil {
+// 		return err
+// 	}
+
+// 	senderSlot.Used = true
+
+// 	startRTCPReader(sender)
+
+// 	mid := senderSlot.Mid
+// 	trackInfo := &peer.TrackInfo{
+// 		Type: "track-info",
+// 		Mid: mid,
+// 		ParticipantID: forwardedTrack.PublisherID,
+// 		Kind: forwardedTrackKind.String(),
+// 	}
+
+// 	p.SendIncomingTrackInfo(trackInfo)
+
+// 	return nil
+// }
+
+func sendForwardedTrackToPeer(forwardedTrack *ForwardedTrack, p *peer.Peer) error {
+	// Used for sending exisitng (already forwarded) tracks to new peer
+
+	peerConnection := p.PeerConnection
+
+	for _, transceiver := range peerConnection.GetTransceivers() {
+		log.Printf(
+			"kind=%s direction=%s mid=%s sender=%v",
+			transceiver.Kind(), transceiver.Direction(), transceiver.Mid(), transceiver.Sender())
+
+		if transceiver.Direction() != webrtc.RTPTransceiverDirectionSendonly {
+			continue
+		}
+
+		forwardedTrackKind := forwardedTrack.Kind
+		log.Println("Required kind: ", forwardedTrackKind)
+		if transceiver.Kind() != forwardedTrackKind {
+			continue
+		}
+
+		// if transceiver.Sender() == nil {
+		// 	continue
+		// }
+		sender := transceiver.Sender()
+
+		// log.Println("Track: ", sender)
+		// if sender.Track() != nil {
+		// 	continue
+		// }
+
+		if err := sender.ReplaceTrack(forwardedTrack.LocalTrack); err != nil {
+			return err
+		}
+
+		startRTCPReader(sender)
+
+		mid := transceiver.Mid()
+		trackInfo := &peer.TrackInfo{
+			Type: "track-info",
+			Mid: mid,
+			ParticipantID: forwardedTrack.PublisherID,
+			Kind: forwardedTrackKind.String(),
+		}
+
+		p.SendIncomingTrackInfo(trackInfo)
+
+		return nil
 	}
 
-	if senderSlot == nil {
-		log.Println("No sender slot")
-		return
-	}
-
-	sender := senderSlot.Sender
-
-	err := sender.ReplaceTrack(forwardedTrack.LocalTrack)
-	if err != nil {
-		log.Printf("Error replace track: %v\n", err)
-		return
-	}
-
-	senderSlot.Used = true
-
-	startRTCPReader(sender)
+	return errors.New("No transceiver exists for sending")
 }
 
 func getFreeSenderSlot(senderSlots []*peer.SenderSlot) *peer.SenderSlot {
