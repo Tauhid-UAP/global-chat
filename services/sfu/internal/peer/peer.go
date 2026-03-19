@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 
 	"github.com/pion/webrtc/v3"
+	"github.com/pion/rtcp"
 
 	sfupb "github.com/Tauhid-UAP/global-chat/proto/sfu"
 )
@@ -16,8 +17,16 @@ type SenderSlot struct {
         Used bool
 }
 
-type TrackInfo struct {
+type DataChannelMessage struct {
 	Type string `json:"Type"`
+	Data json.RawMessage `json:"Data"`
+}
+
+type PeerExitInfo struct {
+	ParticipantID string `json:"ParticipantID"`
+}
+
+type TrackInfo struct {
 	Mid string `json:"Mid"`
 	ParticipantID string `json:"ParticipantID"`
 	Kind string `json:"Kind"`
@@ -39,8 +48,16 @@ type Peer struct {
 	Closed bool
 }
 
-func sendTrackInfoToDataChannel(trackInfo *TrackInfo, dataChannel *webrtc.DataChannel) error {
-	data, err := json.Marshal(trackInfo)
+func IndicatePictureLoss(peerConnection *webrtc.PeerConnection, track *webrtc.TrackRemote) {
+	peerConnection.WriteRTCP([]rtcp.Packet{
+		&rtcp.PictureLossIndication{
+			MediaSSRC: uint32(track.SSRC()),
+		},
+	})
+}
+
+func SendMessageToDataChannel(dataChannelMessage *DataChannelMessage, dataChannel *webrtc.DataChannel) error {
+	data, err := json.Marshal(dataChannelMessage)
 	if err != nil {
 		return err
 	}
@@ -52,13 +69,39 @@ func sendTrackInfoToDataChannel(trackInfo *TrackInfo, dataChannel *webrtc.DataCh
 	return nil
 }
 
+func MakeDataChannelMessage(messageType string, data any) (*DataChannelMessage, error) {
+	marshalledData, err := json.Marshal(data)
+	if err != nil {
+		return nil, err
+	}
+
+	return &DataChannelMessage{
+		Type: messageType,
+		Data: marshalledData,
+	}, nil
+}
+
+func sendTrackInfoToDataChannel(trackInfo *TrackInfo, dataChannel *webrtc.DataChannel) error {
+	dataChannelMessage, err := MakeDataChannelMessage("track-info", trackInfo)
+	if err != nil {
+		return err
+	}
+
+	return SendMessageToDataChannel(dataChannelMessage, dataChannel)
+}
+
+func isDataChannelOpen(dataChannel *webrtc.DataChannel) bool {
+	return (dataChannel != nil) && (dataChannel.ReadyState() == webrtc.DataChannelStateOpen)
+}
+
 func (p *Peer) SendIncomingTrackInfo(trackInfo *TrackInfo) error {
+	log.Println("Acquiring lock -> SendIncomingTrackInfo")
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
 	dataChannel := p.DataChannel
 	userID := p.UserID
-	if (dataChannel == nil) || (dataChannel.ReadyState() != webrtc.DataChannelStateOpen) {
+	if !isDataChannelOpen(dataChannel) {
 		p.PendingTrackInfo = append(p.PendingTrackInfo, trackInfo)
 		log.Printf("Data channel not open for peer - %s | Track queued\n", userID)
 		return nil
@@ -73,6 +116,7 @@ func (p *Peer) SendIncomingTrackInfo(trackInfo *TrackInfo) error {
 }
 
 func (p *Peer) FlushPendingTrackInfo() (int, int, []error) {
+	log.Println("Acquiring lock -> FlushPendingTrackInfo")
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -95,6 +139,7 @@ func (p *Peer) FlushPendingTrackInfo() (int, int, []error) {
 }
 
 func (p *Peer) Close() {
+	log.Println("Acquiring lock -> Close")
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
