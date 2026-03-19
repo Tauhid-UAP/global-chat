@@ -20,11 +20,12 @@ func forwardRTP(remoteTrack *webrtc.TrackRemote, localTrack *webrtc.TrackLocalSt
 	for {
 		n, _, err := remoteTrack.Read(buf)
 		if err != nil {
-			log.Println("Error reading from remote track: %v", err)
+			log.Printf("Error reading from remote track: %v\n", err)
 			return
 		}
 
 		if _, err := localTrack.Write(buf[:n]); err != nil {
+			log.Printf("Error writing remote data to track: %v\n", err)
 			return
 		}
 	}
@@ -86,24 +87,14 @@ func (s *SFUServer) deleteRoomIfEmpty(r *room.Room) {
 }
 
 func (s *SFUServer) removePeerFromRoom(userID string, r *room.Room) {
-	isPeerRemoved := r.RemovePeerIfExists(userID)
-	if !isPeerRemoved {
+	isPeerRemovedNow := r.PerformPeerRemovalOperations(userID)
+	if !isPeerRemovedNow {
 		log.Printf("Peer - %s is already removed.\n", userID)
 		return
 	}
 	
 	log.Printf("Peer - %s removed.\n", userID)
 	s.deleteRoomIfEmpty(r)
-}
-
-func getFreeSender(senders []*webrtc.RTPSender) *webrtc.RTPSender {
-	for _, s := range senders {
-		if s.Track() == nil {
-			return s
-		}
-	}
-
-	return nil
 }
 
 // Used by SFUServer to serve signals sent to it via gRPC
@@ -194,6 +185,10 @@ func (s *SFUServer) Signal(stream sfupb.SFUService_SignalServer) error {
 			// Peer state monitoring
 			peerConnection.OnConnectionStateChange(func(state webrtc.PeerConnectionState) {
 				log.Printf("Peer %s state: %s", userID, state.String())
+				if state == webrtc.PeerConnectionStateConnected {
+					currentRoom.SendExistingForwardedTracksToPeer(currentPeer)
+					return
+				}
 
 				if state == webrtc.PeerConnectionStateFailed || state == webrtc.PeerConnectionStateDisconnected || state == webrtc.PeerConnectionStateClosed {
 					currentPeer.Close()
@@ -217,13 +212,19 @@ func (s *SFUServer) Signal(stream sfupb.SFUService_SignalServer) error {
 					return
 				}
 
+				kind := remoteTrack.Kind()
 				forwardedTrack := &room.ForwardedTrack{
-					PublisherID: userID,
-					Kind: remoteTrack.Kind(),
+					Publisher: currentPeer,
+					Kind: kind,
 					LocalTrack: localTrack,
+					RemoteTrack: remoteTrack,
 				}
 
 				currentRoom.PerformNewForwardedTrackOperations(forwardedTrack)
+				
+				if kind == webrtc.RTPCodecTypeVideo {
+					peer.IndicatePictureLoss(peerConnection, remoteTrack)
+				}
 
 				go forwardRTP(remoteTrack, localTrack)
 			})
@@ -274,8 +275,10 @@ func (s *SFUServer) Signal(stream sfupb.SFUService_SignalServer) error {
 					return err
 				}
 			}
-
-			currentRoom.SendExistingForwardedTracksToPeer(currentPeer)
+			
+			// log.Println("Forwarding existing tracks")
+			// currentRoom.SendExistingForwardedTracksToPeer(currentPeer)
+			// log.Println("Forwarded existing tracks")
 
 			// flush buffered ICE
 			for _, candidate := range bufferedICECandidates {
@@ -298,32 +301,6 @@ func (s *SFUServer) Signal(stream sfupb.SFUService_SignalServer) error {
 				log.Printf("Failed to set local description: %v", err)
 				return err
 			}
-			
-			// for _, transceiver := range peerConnection.GetTransceivers() {
-			// 	if transceiver.Direction() != webrtc.RTPTransceiverDirectionSendonly {
-			// 		continue
-			// 	}
-			
-			// 	mid := *transceiver.Mid()
-			
-			// 	sender := transceiver.Sender()
-			
-			// 	senderSlot := &peer.SenderSlot{
-			// 		Sender: sender,
-			// 		Mid:    mid,
-			// 	}
-				
-			// 	transceiverKind := transceiver.Kind()
-			// 	switch transceiverKind {
-			// 	case webrtc.RTPCodecTypeAudio:
-			// 		currentPeer.AudioSenderSlots = append(currentPeer.AudioSenderSlots, senderSlot)
-			// 		break
-				
-			// 	case webrtc.RTPCodecTypeVideo:
-			// 		currentPeer.VideoSenderSlots = append(currentPeer.VideoSenderSlots, senderSlot)
-			// 		break
-			// 	}
-			// }
 
 			// Send answer back
 			response := &sfupb.SignalResponse{
@@ -346,7 +323,7 @@ func (s *SFUServer) Signal(stream sfupb.SFUService_SignalServer) error {
 		}
 
 		if ice := req.GetIceCandidate(); ice != nil {
-			// log.Println("Received remote ICE Candidate: ", ice)
+			log.Println("Received remote ICE Candidate: ", ice)
 			// Manually convert SdpMlineIndex to uint16 because Pion uses uint16 but Protobuf does not support uint16.
 			mLineIndex := uint16(ice.SdpMlineIndex)
 			
@@ -366,7 +343,7 @@ func (s *SFUServer) Signal(stream sfupb.SFUService_SignalServer) error {
 			if err != nil {
 				log.Printf("Error adding ICE candidate: %s | %v", webRTCICECandidate, err)
 			}
-			// log.Println("Added ICE candidate from remote")
+			log.Println("Added ICE candidate from remote")
 		}
 	}
 }

@@ -15,10 +15,11 @@ import (
 )
 
 type ForwardedTrack struct {
-	PublisherID string
+	Publisher *peer.Peer
 	Kind webrtc.RTPCodecType
 
 	LocalTrack *webrtc.TrackLocalStaticRTP
+	RemoteTrack *webrtc.TrackRemote
 }
 
 // Room stores all peers in a room
@@ -70,15 +71,43 @@ func (r *Room) RemovePeer(userID string) {
 }
 
 func (r *Room) RemovePeerIfExists(userID string) bool {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	if _, ok := r.Peers[userID]; !ok {
 		return false
 	}
 	
 	r.RemovePeer(userID)
 	r.DecrementTotalPeers(1)
+
+	return true
+}
+
+func (r *Room) PerformPeerRemovalOperations(userID string) bool {
+	log.Println("Acquiring lock -> PerformPeerRemovalOperations")
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	isRemovedNow := r.RemovePeerIfExists(userID)
+	if !isRemovedNow {
+		return false
+	}
+
+	peerExitInfo := &peer.PeerExitInfo{
+		ParticipantID: userID,
+	}
+	dataChannelMessage, err := peer.MakeDataChannelMessage("peer-exit-info", peerExitInfo)
+	if err != nil {
+		log.Println("Error making data channel message with peer exit info: %v", err)
+		return true
+	}
+
+	for _, p := range r.Peers {
+		err = peer.SendMessageToDataChannel(dataChannelMessage, p.DataChannel)
+		if err == nil {
+			continue
+		}
+
+		log.Println("Error sending peer exit info to data channel: %v", err)
+	}
 
 	return true
 }
@@ -96,6 +125,7 @@ func (r *Room) GetPeers() []*peer.Peer {
 }
 
 func (r *Room) InitiatePeerForRoom(userID string, stream sfupb.SFUService_SignalServer) (*peer.Peer, error) {
+	log.Println("Acquiring lock -> InitiatePeerForRoom")
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -111,119 +141,10 @@ func (r *Room) InitiatePeerForRoom(userID string, stream sfupb.SFUService_Signal
 		return nil, err
 	}
 
-	// Create data channel for sending track metadata to the browser
-	// dataChannel, err := peerConnection.CreateDataChannel("track-info", nil)
-	// if err != nil {
-	// 	log.Printf("Failed to create data channel for peer - %s | %v\n", userID, err)
-	// 	return nil, err
-	// }
-
-	// audioSenderSlots := []*peer.SenderSlot{}
-	// videoSenderSlots := []*peer.SenderSlot{}
-	// for i := 0; i < r.GetMaxPeers(); i++ {
-	// 	audioTrack, _ := webrtc.NewTrackLocalStaticRTP(
-	// 		webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeOpus},
-	// 		"audio",
-	// 		"sfu",
-	// 	)
-
-	// 	peerConnection.AddTrack(audioTrack)
-
-	// 	// audioSender, _ := peerConnection.AddTrack(audioTrack)
-
-	// 	// audioSender.ReplaceTrack(nil)
-	
-	// 	videoTrack, _ := webrtc.NewTrackLocalStaticRTP(
-	// 		webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeVP8},
-	// 		"video",
-	// 		"sfu",
-	// 	)
-
-	// 	peerConnection.AddTrack(videoTrack)
-
-	// 	// videoSender, _ := peerConnection.AddTrack(videoTrack)
-	
-	// 	// videoSender.ReplaceTrack(nil)
-	// }
-
-	/*
-	// receivers (browser -> SFU)
-
-	_, err = peerConnection.AddTransceiverFromKind(
-		webrtc.RTPCodecTypeAudio,
-		webrtc.RTPTransceiverInit{
-			Direction: webrtc.RTPTransceiverDirectionRecvonly,
-		},
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = peerConnection.AddTransceiverFromKind(
-		webrtc.RTPCodecTypeVideo,
-		webrtc.RTPTransceiverInit{
-			Direction: webrtc.RTPTransceiverDirectionRecvonly,
-		},
-	)
-	if err != nil {
-		return nil, err
-	}
-	
-	// senders (SFU -> peers)
-
-	audioSenderSlots := []*peer.SenderSlot{}
-	videoSenderSlots := []*peer.SenderSlot{}
-
-	for i := 0; i < r.GetMaxPeers() - 1; i++ {
-		audioTransceiver, err := peerConnection.AddTransceiverFromKind(
-			webrtc.RTPCodecTypeAudio,
-			webrtc.RTPTransceiverInit{
-				Direction: webrtc.RTPTransceiverDirectionSendrecv,
-			},
-		)
-		if err != nil {
-			log.Printf("Error adding audio transceiver for peer %s | %v", userID, err)
-			return nil, err
-		}
-		audioSenderSlot := &peer.SenderSlot{
-			Sender: audioTransceiver.Sender(),
-			Used: false,
-		}
-		audioSenderSlots = append(audioSenderSlots, audioSenderSlot)
-
-		videoTransceiver, err := peerConnection.AddTransceiverFromKind(
-			webrtc.RTPCodecTypeVideo,
-			webrtc.RTPTransceiverInit{
-				Direction: webrtc.RTPTransceiverDirectionSendrecv,
-			},
-		)
-		if err != nil {
-			log.Printf("Error adding video transceiver for peer %s | %v", userID, err)
-			return nil, err
-		}
-		videoSenderSlot := &peer.SenderSlot{
-			Sender: videoTransceiver.Sender(),
-			Used: false,
-		}
-		videoSenderSlots = append(videoSenderSlots, videoSenderSlot)
-	}
-	
 	newPeer := &peer.Peer{
 		UserID: userID,
 		PeerConnection: peerConnection,
 		Stream: stream,
-		AudioSenderSlots: audioSenderSlots,
-		VideoSenderSlots: videoSenderSlots,
-	}
-	*/
-
-	newPeer := &peer.Peer{
-		UserID: userID,
-		PeerConnection: peerConnection,
-		Stream: stream,
-		// DataChannel: dataChannel,
-		// AudioSenderSlots: []*peer.SenderSlot{},
-		// VideoSenderSlots: []*peer.SenderSlot{},
 	}
 
 	peerConnection.OnDataChannel(func(dataChannel *webrtc.DataChannel) {
@@ -243,21 +164,6 @@ func (r *Room) InitiatePeerForRoom(userID string, stream sfupb.SFUService_Signal
 			}
 		})
 	})
-
-	// dataChannel.OnOpen(func() {
-	// 	log.Printf("Data channel opened for peer - %s\n", userID)
-
-	// 	total, failure_count, errs := newPeer.FlushPendingTrackInfo()
-
-	// 	log.Printf("Successfully flushed %d track info for peer - %s\n", total, userID)
-
-	// 	if failure_count > 0 {
-	// 		log.Printf("Failed to flush %d track info for peer - %s\n", failure_count, userID)
-	// 		for _, err := range errs {
-	// 			log.Printf("Flush error: %v\n", err)
-	// 		}
-	// 	}
-	// })
 	
 	r.AddPeer(newPeer)
 
@@ -273,7 +179,7 @@ func (r *Room) SendForwardedTrackToPeers(forwardedTrack *ForwardedTrack) {
 	log.Println("Sending forwarded track to all peers")
 	for _, p := range r.Peers {
 		userID := p.UserID
-		if userID == forwardedTrack.PublisherID {
+		if userID == forwardedTrack.Publisher.UserID {
 			continue
 		}
 		
@@ -287,72 +193,12 @@ func (r *Room) SendForwardedTrackToPeers(forwardedTrack *ForwardedTrack) {
 }
 
 func (r *Room) PerformNewForwardedTrackOperations(forwardedTrack *ForwardedTrack) {
+	log.Println("Acquiring lock -> PerformNewForwardedTrackOperations")
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.AddForwardedTrack(forwardedTrack)
 	r.SendForwardedTrackToPeers(forwardedTrack)
 }
-
-func (r *Room) SendExistingForwardedTracksToPeer(p *peer.Peer) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	userID := p.UserID
-	for _, forwardedTrack := range r.ForwardedTracks {
-		if forwardedTrack.PublisherID == userID {
-			continue
-		}
-
-		if err := sendForwardedTrackToPeer(forwardedTrack, p); err != nil {
-			log.Printf("Error sending existing forwarded track to peer - %s | %v\n", userID, err)
-			continue
-		}
-
-		log.Printf("Sent existing forwarded track to peer - %s\n", userID)
-	}
-}
-
-// func sendForwardedTrackToPeer(forwardedTrack *ForwardedTrack, p *peer.Peer) error {
-// 	var senderSlot *peer.SenderSlot
-
-// 	forwardedTrackKind := forwardedTrack.Kind
-// 	switch forwardedTrackKind {
-// 		case webrtc.RTPCodecTypeAudio:
-// 			senderSlot = getFreeSenderSlot(p.AudioSenderSlots)
-
-// 		case webrtc.RTPCodecTypeVideo:
-// 			senderSlot = getFreeSenderSlot(p.VideoSenderSlots)
-
-// 		default:
-// 			return errors.New("Invalid kind: " + forwardedTrackKind.String())
-// 	}
-
-// 	if senderSlot == nil {
-// 		return errors.New("No sender slot")
-// 	}
-
-// 	sender := senderSlot.Sender
-
-// 	err := sender.ReplaceTrack(forwardedTrack.LocalTrack)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	senderSlot.Used = true
-
-// 	startRTCPReader(sender)
-
-// 	mid := senderSlot.Mid
-// 	trackInfo := &peer.TrackInfo{
-// 		Type: "track-info",
-// 		Mid: mid,
-// 		ParticipantID: forwardedTrack.PublisherID,
-// 		Kind: forwardedTrackKind.String(),
-// 	}
-
-// 	p.SendIncomingTrackInfo(trackInfo)
-
-// 	return nil
-// }
 
 func sendForwardedTrackToPeer(forwardedTrack *ForwardedTrack, p *peer.Peer) error {
 	// Used for sending exisitng (already forwarded) tracks to new peer
@@ -374,15 +220,7 @@ func sendForwardedTrackToPeer(forwardedTrack *ForwardedTrack, p *peer.Peer) erro
 			continue
 		}
 
-		// if transceiver.Sender() == nil {
-		// 	continue
-		// }
 		sender := transceiver.Sender()
-
-		// log.Println("Track: ", sender)
-		// if sender.Track() != nil {
-		// 	continue
-		// }
 
 		if err := sender.ReplaceTrack(forwardedTrack.LocalTrack); err != nil {
 			return err
@@ -392,9 +230,8 @@ func sendForwardedTrackToPeer(forwardedTrack *ForwardedTrack, p *peer.Peer) erro
 
 		mid := transceiver.Mid()
 		trackInfo := &peer.TrackInfo{
-			Type: "track-info",
 			Mid: mid,
-			ParticipantID: forwardedTrack.PublisherID,
+			ParticipantID: forwardedTrack.Publisher.UserID,
 			Kind: forwardedTrackKind.String(),
 		}
 
@@ -406,16 +243,33 @@ func sendForwardedTrackToPeer(forwardedTrack *ForwardedTrack, p *peer.Peer) erro
 	return errors.New("No transceiver exists for sending")
 }
 
-func getFreeSenderSlot(senderSlots []*peer.SenderSlot) *peer.SenderSlot {
-	for _, ss := range senderSlots {
-		if !ss.Used {
-			return ss
+func (r *Room) SendExistingForwardedTracksToPeer(p *peer.Peer) {
+	log.Println("Acquiring lock -> SendExistingForwardedTracksToPeer")
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	userID := p.UserID
+	for _, forwardedTrack := range r.ForwardedTracks {
+		publisher := forwardedTrack.Publisher
+		if publisher.UserID == userID {
+			continue
 		}
+
+		if err := sendForwardedTrackToPeer(forwardedTrack, p); err != nil {
+			log.Printf("Error sending existing forwarded track to peer - %s | %v\n", userID, err)
+			continue
+		}
+
+		log.Printf("Sent existing forwarded track to peer - %s\n", userID)
+
+		if forwardedTrack.Kind != webrtc.RTPCodecTypeVideo {
+			continue
+		}
+
+		peer.IndicatePictureLoss(publisher.PeerConnection, forwardedTrack.RemoteTrack)
+
+		log.Println("Indicated picture loss")
 	}
-
-	return nil
 }
-
 
 func startRTCPReader(sender *webrtc.RTPSender) {
 	// Define and launch separate Goroutine to prevent overwriting the sender every time it is updated in the calling function

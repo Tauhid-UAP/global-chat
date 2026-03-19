@@ -10,6 +10,7 @@ document.addEventListener("DOMContentLoaded", function () {
     let bufferedICECandidates = [];
 
     let midToParticipant = {};
+	let participantToMids = {};
     let participantStreams = {};
     let pendingTracks = {};
 
@@ -136,8 +137,8 @@ document.addEventListener("DOMContentLoaded", function () {
 	    const participantId = midToParticipant[mid];
 	    if (!participantId) {
 	        pendingTracks[mid] = track;
-		console.log("No participant ID. Track queued.");
-		return;
+			console.log("No participant ID. Track queued.");
+			return;
 	    }
 	    
 	    const participantStream = getOrCreateMediaStreamForParticipantId(participantId);
@@ -146,14 +147,26 @@ document.addEventListener("DOMContentLoaded", function () {
 	    participantStream.addTrack(track);
 	};
 
-	dataChannel = peerConnection.createDataChannel("track-info");
+	dataChannel = peerConnection.createDataChannel("call-info");
 	dataChannel.onmessage = event => {
 		const msg = JSON.parse(event.data);
-		console.log("New data channel message: ", msg)
-		if (msg.Type === "track-info") {
-			const mid = msg.Mid;
-			const participantId = msg.ParticipantID;
+		console.log("New data channel message: ", msg);
+
+		const messageType = msg.Type;
+		if (messageType === "track-info") {
+			const mid = msg.Data.Mid;
+			const participantId = msg.Data.ParticipantID;
 			midToParticipant[mid] = participantId;
+			
+			const participantMids = participantToMids[participantId]
+			if (participantMids) {
+				console.log("Pushed mid for participant")
+				participantMids.push(mid);
+			} else {
+				console.log("Initiated mid array for participant")
+				participantToMids[participantId] = [mid]
+			}
+
 			const participantStream = getOrCreateMediaStreamForParticipantId(participantId);
 			
 			const pendingTrack = pendingTracks[mid];
@@ -166,6 +179,26 @@ document.addEventListener("DOMContentLoaded", function () {
 			console.log("Media stream: ", participantStream);
 			participantStream.addTrack(pendingTrack);
 			delete pendingTracks[mid];
+			return;
+		}
+
+		if (messageType === "peer-exit-info") {
+			const participantId = msg.Data.ParticipantID;
+			const mids = participantToMids[participantId];
+			if (!mids) {
+				return
+			}
+
+			mids.forEach(mid => {
+				delete midToParticipant[mid];
+				delete pendingTracks[mid];
+			});
+
+			delete participantToMids[participantId];
+			delete participantStreams[participantId];
+
+			removeVideo(participantId);
+			
 			return;
 		}
 	}
@@ -189,41 +222,41 @@ document.addEventListener("DOMContentLoaded", function () {
     function endCall() {
         if (!callActive) return;
 
-	callActive = false;
+		callActive = false;
 
-	startCallBtn.style.display = "inline-block";
-	endCallBtn.style.display = "none";
-	videoSection.style.display = "none";
-	
-	if (peerConnection) {
-	    peerConnection.getSenders().forEach(sender => {
-	        if (sender.track) sender.track.stop();
-	    });
-	    peerConnection.close();
-	    peerConnection = null;
-	}
+		startCallBtn.style.display = "inline-block";
+		endCallBtn.style.display = "none";
+		videoSection.style.display = "none";
+		
+		if (peerConnection) {
+			peerConnection.getSenders().forEach(sender => {
+				if (sender.track) sender.track.stop();
+			});
+			peerConnection.close();
+			peerConnection = null;
+		}
 
-	if (dataChannel) {
-		dataChannel = null;
-	}
+		if (dataChannel) {
+			dataChannel = null;
+		}
 
-	midToParticipant = {};
-	pendingTracks = {};
-	participantStreams = {}
+		midToParticipant = {};
+		pendingTracks = {};
+		participantStreams = {}
 
-	hasSetRemoteDescription = false;
-	bufferedICECandidates = [];
-	
-	if (localStream) {
-	    localStream.getTracks().forEach(track => track.stop());
-	    localStream = null;
-	}
-	
-	videoGrid.innerHTML = "";
+		hasSetRemoteDescription = false;
+		bufferedICECandidates = [];
+		
+		if (localStream) {
+			localStream.getTracks().forEach(track => track.stop());
+			localStream = null;
+		}
+		
+		videoGrid.innerHTML = "";
 
-	socket.send(JSON.stringify({
-		Type: "webrtc.peer_left"
-	}));
+		// socket.send(JSON.stringify({
+		// 	Type: "webrtc.peer_left"
+		// }));
     }
 
     function addVideoStream(stream, id, label, muted = false) {
@@ -336,6 +369,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
 		    case "user.leave":
 			    renderSystemMessage(`${data.User.FullName} left`);
+				removeVideo(data.userID);
 			    break;
 		    
 		    case "webrtc.answer":
@@ -374,9 +408,8 @@ document.addEventListener("DOMContentLoaded", function () {
 			}
 			break;
 		    
-		    case "webrtc.peer_left":
-			removeVideo(data.userID);
-			break;
+		    // case "webrtc.peer_left":
+			// break;
 	    }
     }
 

@@ -41,26 +41,25 @@ func main() {
         webRTCSettingEngine := webrtc.SettingEngine{}
 	
 	debug := os.Getenv("DEBUG") == "true"
-        if !debug {
+	if !debug {
 		public_ip := os.Getenv("PUBLIC_IP")
-                webRTCSettingEngine.SetNAT1To1IPs(
-                        []string{public_ip},
-                        webrtc.ICECandidateTypeHost,
-                )
-        }
+		webRTCSettingEngine.SetNAT1To1IPs(
+				[]string{public_ip},
+				webrtc.ICECandidateTypeHost,
+		)
+	}
 
-
-        webRTCSettingEngine.SetNetworkTypes([]webrtc.NetworkType{
-                webrtc.NetworkTypeUDP4,
-        })
+	webRTCSettingEngine.SetNetworkTypes([]webrtc.NetworkType{
+			webrtc.NetworkTypeUDP4,
+	})
 
 	webRTCSettingEngine.SetEphemeralUDPPortRange(50000, 50100)
 
-        webRTCAPI := webrtc.NewAPI(
-                webrtc.WithMediaEngine(webRTCMediaEngine),
-                webrtc.WithInterceptorRegistry(interceptorRegistry),
-                webrtc.WithSettingEngine(webRTCSettingEngine),
-        )
+	webRTCAPI := webrtc.NewAPI(
+			webrtc.WithMediaEngine(webRTCMediaEngine),
+			webrtc.WithInterceptorRegistry(interceptorRegistry),
+			webrtc.WithSettingEngine(webRTCSettingEngine),
+	)
 	
 	maxPeersPerRoom, err := strconv.Atoi(os.Getenv("MAX_PEERS_PER_ROOM"))
 	if err != nil {
