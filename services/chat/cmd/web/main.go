@@ -21,6 +21,8 @@ import (
 	"github.com/Tauhid-UAP/global-chat/services/chat/core/websockethandlers"
 	"github.com/Tauhid-UAP/global-chat/services/chat/core/chat"
 	"github.com/Tauhid-UAP/global-chat/services/chat/core/sfuclient"
+	"github.com/Tauhid-UAP/global-chat/services/chat/core/twiliorest"
+	"github.com/Tauhid-UAP/global-chat/services/chat/core/iceserverclient"
 	"github.com/Tauhid-UAP/global-chat/services/chat/core/config"
 )
 
@@ -85,12 +87,25 @@ func main() {
 	websocketUpgrader := websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool {return true},
 	}
+
 	optionalAuthMux.HandleFunc("/ws/chat", websockethandlers.ChatHandler(websocketUpgrader, hub, sfuClient))
+
+	twilioAccountSID := os.Getenv("TWILIO_ACCOUNT_SID")
+	twilioAuthToken := os.Getenv("TWILIO_AUTH_TOKEN")
+	twilioRestClient := twiliorest.CreateTwilioRestClient(twilioAccountSID, twilioAuthToken)
+	twilioClient := &twiliorest.TwilioClient{
+		RestClient: twilioRestClient,
+	}
+	iceServerClient := &iceserverclient.ICEServerClient{
+		TwilioClient: twilioClient,
+	}
+	optionalAuthMux.HandleFunc("/api/ice-servers", handlers.ICEServersHandler(iceServerClient))
 
 	optionalAuthHandler := middleware.OptionalAuthMiddleware(middleware.CSRFMiddleware(optionalAuthMux))
 
 	mux.Handle("/chat", optionalAuthHandler)
 	mux.Handle("/ws/chat", optionalAuthHandler)
+	mux.Handle("/api/ice-servers", optionalAuthHandler)
 
 	mux.Handle("/", protectedHandler)
 	
