@@ -88,135 +88,156 @@ document.addEventListener("DOMContentLoaded", function () {
 		return participantStream;
     }
 
-    async function startCall() {
-	if (callActive) return;
+	async function fetchICEServers() {
+		const response = await fetch("/api/ice-servers", {
+			method: "GET",
+			credentials: "include"
+		});
 
-	callActive = true;
-	
-	startCallBtn.style.display = "none";
-	endCallBtn.style.display = "inline-block";
-	videoSection.style.display = "block";
+		if (!response.ok) {
+			throw new Error("Failed to fetch ICE servers");
+		}
 
-	localStream = await navigator.mediaDevices.getUserMedia({
-	    video: true,
-	    audio: true
-	});
-	
-	addVideoStream(localStream, userID, userFullName, true);
-	
-	peerConnection = new RTCPeerConnection(null);
-	
-	localStream.getTracks().forEach(track => {
-            peerConnection.addTrack(track, localStream);
-	});
-
-	const max_participants = 10;
-	const max_remote_participants = max_participants - 1;
-	for (let i=0; i < max_remote_participants; i++) {
-		peerConnection.addTransceiver("audio", { direction: "recvonly" });
-		peerConnection.addTransceiver("video", { direction: "recvonly" });
+		const data = await response.json();
+		return data.iceServers;
 	}
 
-	peerConnection.onicecandidate = event => {
-	    candidate = event.candidate
-	    if (!candidate) {
-	        return
-	    }
-	    
-	    socket.send(JSON.stringify({
-	        Type: "webrtc.ice",
-		Data: event.candidate
-	    }));
-	};
-	
-	peerConnection.ontrack = event => {
-	    console.log("Track event: ", event);
-	    const mid = event.transceiver.mid;
-	    const track = event.track
-	    console.log("Track event - mid: ", mid, " | Kind: ", track.kind);
-	    const participantId = midToParticipant[mid];
-	    if (!participantId) {
-	        pendingTracks[mid] = track;
-			console.log("No participant ID. Track queued.");
-			return;
-	    }
-	    
-	    const participantStream = getOrCreateMediaStreamForParticipantId(participantId);
+    async function startCall() {
+		if (callActive) return;
 
-	    console.log("Adding track to stream");
-	    participantStream.addTrack(track);
-	};
+		callActive = true;
+		
+		startCallBtn.style.display = "none";
+		endCallBtn.style.display = "inline-block";
+		videoSection.style.display = "block";
 
-	dataChannel = peerConnection.createDataChannel("call-info");
-	dataChannel.onmessage = event => {
-		const msg = JSON.parse(event.data);
-		console.log("New data channel message: ", msg);
+		localStream = await navigator.mediaDevices.getUserMedia({
+			video: true,
+			audio: true
+		});
+		
+		addVideoStream(localStream, userID, userFullName, true);
+		
+		const iceServers = await fetchICEServers();
 
-		const messageType = msg.Type;
-		if (messageType === "track-info") {
-			const mid = msg.Data.Mid;
-			const participantId = msg.Data.ParticipantID;
-			midToParticipant[mid] = participantId;
-			
-			const participantMids = participantToMids[participantId]
-			if (participantMids) {
-				console.log("Pushed mid for participant")
-				participantMids.push(mid);
-			} else {
-				console.log("Initiated mid array for participant")
-				participantToMids[participantId] = [mid]
+		console.log("Fetched ICE servers:", iceServers);
+
+		const iceConfig = {
+			iceServers: iceServers
+		};
+		peerConnection = new RTCPeerConnection(iceConfig);
+		
+		localStream.getTracks().forEach(track => {
+				peerConnection.addTrack(track, localStream);
+		});
+
+		const max_participants = 10;
+		const max_remote_participants = max_participants - 1;
+		for (let i=0; i < max_remote_participants; i++) {
+			peerConnection.addTransceiver("audio", { direction: "recvonly" });
+			peerConnection.addTransceiver("video", { direction: "recvonly" });
+		}
+
+		peerConnection.onicecandidate = event => {
+			candidate = event.candidate
+			if (!candidate) {
+				return
 			}
-
-			const participantStream = getOrCreateMediaStreamForParticipantId(participantId);
 			
-			const pendingTrack = pendingTracks[mid];
-			if (!pendingTrack) {
-				console.log("No pending tracks.");
+			socket.send(JSON.stringify({
+				Type: "webrtc.ice",
+			Data: event.candidate
+			}));
+		};
+		
+		peerConnection.ontrack = event => {
+			console.log("Track event: ", event);
+			const mid = event.transceiver.mid;
+			const track = event.track
+			console.log("Track event - mid: ", mid, " | Kind: ", track.kind);
+			const participantId = midToParticipant[mid];
+			if (!participantId) {
+				pendingTracks[mid] = track;
+				console.log("No participant ID. Track queued.");
+				return;
+			}
+			
+			const participantStream = getOrCreateMediaStreamForParticipantId(participantId);
+
+			console.log("Adding track to stream");
+			participantStream.addTrack(track);
+		};
+
+		dataChannel = peerConnection.createDataChannel("call-info");
+		dataChannel.onmessage = event => {
+			const msg = JSON.parse(event.data);
+			console.log("New data channel message: ", msg);
+
+			const messageType = msg.Type;
+			if (messageType === "track-info") {
+				const mid = msg.Data.Mid;
+				const participantId = msg.Data.ParticipantID;
+				midToParticipant[mid] = participantId;
+				
+				const participantMids = participantToMids[participantId]
+				if (participantMids) {
+					console.log("Pushed mid for participant")
+					participantMids.push(mid);
+				} else {
+					console.log("Initiated mid array for participant")
+					participantToMids[participantId] = [mid]
+				}
+
+				const participantStream = getOrCreateMediaStreamForParticipantId(participantId);
+				
+				const pendingTrack = pendingTracks[mid];
+				if (!pendingTrack) {
+					console.log("No pending tracks.");
+					return;
+				}
+
+				console.log("Adding track to stream");
+				console.log("Media stream: ", participantStream);
+				participantStream.addTrack(pendingTrack);
+				delete pendingTracks[mid];
 				return;
 			}
 
-			console.log("Adding track to stream");
-			console.log("Media stream: ", participantStream);
-			participantStream.addTrack(pendingTrack);
-			delete pendingTracks[mid];
-			return;
-		}
+			if (messageType === "peer-exit-info") {
+				const participantId = msg.Data.ParticipantID;
+				const mids = participantToMids[participantId];
+				if (!mids) {
+					return
+				}
 
-		if (messageType === "peer-exit-info") {
-			const participantId = msg.Data.ParticipantID;
-			const mids = participantToMids[participantId];
-			if (!mids) {
-				return
+				mids.forEach(mid => {
+					delete midToParticipant[mid];
+					delete pendingTracks[mid];
+				});
+
+				delete participantToMids[participantId];
+				delete participantStreams[participantId];
+
+				removeVideo(participantId);
+				
+				return;
 			}
-
-			mids.forEach(mid => {
-				delete midToParticipant[mid];
-				delete pendingTracks[mid];
-			});
-
-			delete participantToMids[participantId];
-			delete participantStreams[participantId];
-
-			removeVideo(participantId);
-			
-			return;
 		}
-	}
 
-	peerConnection.onconnectionstatechange = () => {
-	    connectionState = peerConnection.connectionState
-	    if (connectionState === "disconnected" || connectionState === "failed" || connectionState === "closed") {
-	        endCall();
-	    }
-	};
+		peerConnection.onconnectionstatechange = () => {
+			connectionState = peerConnection.connectionState
+			if (connectionState === "disconnected" || connectionState === "failed" || connectionState === "closed") {
+				endCall();
+			}
+		};
 
-	const offer = await peerConnection.createOffer();
-	await peerConnection.setLocalDescription(offer);
+		const offer = await peerConnection.createOffer();
+		await peerConnection.setLocalDescription(offer);
 
-	socket.send(JSON.stringify({
-	    Type: "webrtc.offer",
-	    Data: { sdp: offer.sdp }
-	}));
+		socket.send(JSON.stringify({
+			Type: "webrtc.offer",
+			Data: { sdp: offer.sdp }
+		}));
     }
 
     function endCall() {
