@@ -5,11 +5,15 @@ import (
 	"log"
 	"net/http"
 	"time"
+	"fmt"
 
+	"github.com/Tauhid-UAP/global-chat/services/chat/core/middleware"
+	"github.com/Tauhid-UAP/global-chat/services/chat/core/chat"
 	"github.com/Tauhid-UAP/global-chat/services/chat/core/iceserverclient"
 )
 
 func ICEServersHandler(
+	hub *chat.Hub,
 	iceServerClient *iceserverclient.ICEServerClient,
 	twilioICEServersTTL time.Duration,
 ) http.HandlerFunc {
@@ -20,7 +24,20 @@ func ICEServersHandler(
 			return
 		}
 
+		room := hub.GetRoom(roomName)
+		if room == nil {
+			http.Error(w, fmt.Sprintf("Invalid room name: %s", roomName), http.StatusUnprocessableEntity)
+			return
+		}
+
 		ctx := r.Context()
+		userID := ctx.Value(middleware.UserIDKey).(string)
+		client := room.GetClientWithUserID(userID)
+		if client == nil {
+			http.Error(w, fmt.Sprintf("You are not in room - %s", userID, roomName), http.StatusForbidden)
+			return
+		}
+
 		iceServers, err := iceServerClient.GetICEServersForRoomName(ctx, roomName, twilioICEServersTTL)
 		if err != nil {
 			log.Printf("Failed to fetch ICE servers: %v", err)
