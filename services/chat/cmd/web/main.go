@@ -8,6 +8,7 @@ import (
 	"os"
 	"time"
 	"html/template"
+	"strconv"
 	
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
@@ -99,7 +100,12 @@ func main() {
 	iceServerClient := &iceserverclient.ICEServerClient{
 		TwilioClient: twilioClient,
 	}
-	optionalAuthMux.HandleFunc("/api/ice-servers", handlers.ICEServersHandler(iceServerClient))
+	twilioICEServersTTLSeconds, err := strconv.Atoi(os.Getenv("TWILIO_ICE_SERVERS_TTL_SECONDS"))
+	if err != nil {
+		log.Printf("Error fetching ICE servers TTL: %v", err)
+		return
+	}
+	optionalAuthMux.HandleFunc("/api/ice-servers", handlers.ICEServersHandler(iceServerClient, time.Duration(twilioICEServersTTLSeconds) * time.Second))
 
 	optionalAuthHandler := middleware.OptionalAuthMiddleware(middleware.CSRFMiddleware(optionalAuthMux))
 

@@ -14,6 +14,8 @@ document.addEventListener("DOMContentLoaded", function () {
     let participantStreams = {};
     let pendingTracks = {};
 
+	let room = null;
+
     const joinDiv = document.getElementById("join");
     const chatDiv = document.getElementById("chat");
     const roomTitle = document.getElementById("room-title");
@@ -44,7 +46,7 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     function joinRoom() {
-        const room = roomInput.value.trim();
+        room = roomInput.value.trim();
         if (!room) {
             alert("Room name is required");
             return;
@@ -89,7 +91,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
 	async function fetchICEServers() {
-		const response = await fetch("/api/ice-servers", {
+		const response = await fetch(`/api/ice-servers?room=${encodeURIComponent(room)}`, {
 			method: "GET",
 			credentials: "include"
 		});
