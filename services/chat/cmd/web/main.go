@@ -105,7 +105,7 @@ func main() {
 		log.Printf("Error fetching ICE servers TTL: %v", err)
 		return
 	}
-	optionalAuthMux.HandleFunc("/api/ice-servers", handlers.ICEServersHandler(iceServerClient, time.Duration(twilioICEServersTTLSeconds) * time.Second))
+	optionalAuthMux.HandleFunc("/api/ice-servers", handlers.ICEServersHandler(hub, iceServerClient, time.Duration(twilioICEServersTTLSeconds) * time.Second))
 
 	optionalAuthHandler := middleware.OptionalAuthMiddleware(middleware.CSRFMiddleware(optionalAuthMux))
 
