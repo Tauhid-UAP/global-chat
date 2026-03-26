@@ -27,6 +27,11 @@ type AttendanceData struct {
 	Meta *MetaData `json:Meta`
 }
 
+// To unpack the offer obtained from the client
+type OfferPayload struct {
+	SDP string `json:"sdp"`
+}
+
 func CreateUserData(id string, fullName string) *UserData {
 	return &UserData {
 		ID: id,

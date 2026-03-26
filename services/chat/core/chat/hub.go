@@ -13,11 +13,22 @@ type Hub struct {
 	rooms map[string]*Room
 }
 
+func (hub *Hub) SetRoom(name string, room *Room) {
+	hub.rooms[name] = room
+}
+
+func (hub *Hub) GetRoom(name string) *Room {
+	return hub.rooms[name]
+}
+
+func (hub *Hub) DeleteRoom(name string) {
+	delete(hub.rooms, name)
+}
+
 func (hub *Hub) GetOrCreateRoom(ctx context.Context, name string) *Room {
-	rooms := hub.rooms
 	/* Fast path for high read volumes */
 	hub.mu.RLock()
-	if room, ok := rooms[name]; ok {
+	if room := hub.GetRoom(name); room != nil {
 		log.Println("Got room")
 		hub.mu.RUnlock()
 		return room
@@ -33,13 +44,13 @@ func (hub *Hub) GetOrCreateRoom(ctx context.Context, name string) *Room {
 	Since multiple threads might have been contending for this lock, one may have already initiated the room.
 	So, subsequent holders of the slow path lock should double-check if it has already been initialized.
 	*/
-	if room, ok := rooms[name]; ok {
+	if room := hub.GetRoom(name); room != nil {
 		log.Println("Got room")
 		return room
 	}
 
 	room := CreateRoom(name)
-	rooms[name] = room
+	hub.SetRoom(name, room)
 
 	redisPubSubSubscription := redisclient.SubscribeToRoom(ctx, name)
 	subscribedChannel := redisPubSubSubscription.Channel()
@@ -48,7 +59,7 @@ func (hub *Hub) GetOrCreateRoom(ctx context.Context, name string) *Room {
 		log.Println("Closing Redis subscription")
 		redisPubSubSubscription.Close()
 		hub.mu.Lock()
-		delete(rooms, name)
+		hub.DeleteRoom(name)
 		hub.mu.Unlock()
 	})
 

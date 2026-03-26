@@ -20,10 +20,22 @@ services:
       - redisdata:/data
     command: redis-server --save 60 1 --loglevel warning
 
+  sfu:
+    build:
+      context: .
+      dockerfile: ./services/sfu/Dockerfile
+
+    ports:
+      - "50000-50100:50000-50100/udp"
+    env_file:
+      - ./services/sfu/.env
+    restart: unless-stopped
+
   web:
     build:
       context: .
       dockerfile: ./services/chat/Dockerfile
+
     ports:
       - "8000:8000"
     env_file:
@@ -33,6 +45,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
+      sfu:
+        condition: service_started
     volumes:
       - ~/.aws:/root/.aws:ro
       - ./services/chat/static/:/app/static:ro
@@ -40,6 +54,7 @@ services:
 
   migrate:
     build: .
+
     profiles: ["tools"]
     env_file:
       - ./services/chat/.env

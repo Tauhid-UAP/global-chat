@@ -21,6 +21,16 @@ type Room struct {
 	subscriber func()
 }
 
+func (room *Room) GetClientWithUserID(userID string) *Client {
+	for client := range room.Clients {
+		if client.UserID == userID {
+			return client
+		}
+	}
+
+	return nil
+}
+
 func (room *Room) Run(ctx context.Context, onEmpty func()) {
 	defer onEmpty()
 	

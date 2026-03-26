@@ -3,6 +3,7 @@ package redisclient
 import (
 	"context"
 	"os"
+	"time"
 	"strconv"
 
 	"github.com/redis/go-redis/v9"
@@ -38,6 +39,14 @@ func GetUserByCacheKey(ctx context.Context, cacheKey string) (models.User, error
 		LastName: data["last_name"],
 		IsAnonymous: isAnonymousUser,
 	}, nil
+}
+
+func SetICEServersToCache(ctx context.Context, cacheKey string, data string, cacheTTL time.Duration) error {
+	return Client.Set(ctx, cacheKey, data, cacheTTL).Err()
+}
+
+func GetCachedICEServers(ctx context.Context, cacheKey string) (string, error) {
+	return Client.Get(ctx, cacheKey).Result()
 }
 
 var PubSubClient *redis.Client
