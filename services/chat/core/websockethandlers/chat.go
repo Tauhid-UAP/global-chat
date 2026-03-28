@@ -23,6 +23,7 @@ func ChatHandler(
 	websocketUpgrader websocket.Upgrader,
 	hub *chat.Hub,
 	sfuClient *sfuclient.SFUClient,
+	websocketDurationControlConfig *chat.WebsocketDurationControlConfig,
 ) http.HandlerFunc {
 	return func (w http.ResponseWriter, r *http.Request) {
 		roomName := r.URL.Query().Get("roomName")
@@ -41,9 +42,19 @@ func ChatHandler(
 		}
 
 		log.Printf("Connection upgraded")
+
+		pongDeadline := websocketDurationControlConfig.PongDeadline
+		websocketConnection.SetReadDeadline(time.Now().Add(pongDeadline))
 		
 		ctx := context.Background()
 		userID := r.Context().Value(middleware.UserIDKey).(string)
+
+		websocketConnection.SetPongHandler(func(string) error {
+			log.Printf("PONG received - %s\n", userID)
+			websocketConnection.SetReadDeadline(time.Now().Add(pongDeadline))
+			return nil
+		})
+
 		isAnonymousUser := r.Context().Value(middleware.IsAnonymousUserKey).(bool)
 		user, _ := userselector.GetUserByIDFromApplicableStore(ctx, userID, isAnonymousUser)
 		userFullName := fmt.Sprintf("%s %s", user.FirstName, user.LastName)
@@ -59,7 +70,7 @@ func ChatHandler(
 		room := hub.GetOrCreateRoom(ctx, roomName)
 		room.Register <- client
 
-		go client.ReceiveMessages()
+		go client.ReceiveMessages(websocketDurationControlConfig.PingInterval, websocketDurationControlConfig.WriteDeadline)
 
 		userSignalStream, err := sfuClient.CreateUserStream()
 		if err != nil {

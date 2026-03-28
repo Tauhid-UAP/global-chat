@@ -89,7 +89,15 @@ func main() {
 		CheckOrigin: func(r *http.Request) bool {return true},
 	}
 
-	optionalAuthMux.HandleFunc("/ws/chat", websockethandlers.ChatHandler(websocketUpgrader, hub, sfuClient))
+	pingInterval := 50 * time.Second
+	pongDeadline := 60 * time.Second
+	writeDeadline := 10 * time.Second
+	websocketDurationControlConfig := &chat.WebsocketDurationControlConfig{
+		PingInterval: pingInterval,
+		PongDeadline: pongDeadline,
+		WriteDeadline: writeDeadline,
+	}
+	optionalAuthMux.HandleFunc("/ws/chat", websockethandlers.ChatHandler(websocketUpgrader, hub, sfuClient, websocketDurationControlConfig))
 
 	twilioAccountSID := os.Getenv("TWILIO_ACCOUNT_SID")
 	twilioAuthToken := os.Getenv("TWILIO_AUTH_TOKEN")
