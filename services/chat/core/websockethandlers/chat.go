@@ -177,7 +177,7 @@ func ChatHandler(
 
 func handleSFUResponses(client *chat.Client) {
 	stream := client.SFUStream.Stream
-	websocketConnection := client.Conn
+	
 	for {
 		res, err := stream.Recv()
 		if err != nil {
@@ -195,7 +195,8 @@ func handleSFUResponses(client *chat.Client) {
 			}
 
 			bytesMessage, _ := json.Marshal(answerMessage)
-			websocketConnection.WriteMessage(websocket.TextMessage, bytesMessage)
+			client.Receiver <- bytesMessage
+			
 		case *sfupb.SignalResponse_IceCandidate:
 			iceCandidate := payload.IceCandidate
 			iceCandidateMessage := map[string]interface{}{
@@ -208,7 +209,8 @@ func handleSFUResponses(client *chat.Client) {
 			}
 
 			bytesMessage, _ := json.Marshal(iceCandidateMessage)
-			websocketConnection.WriteMessage(websocket.TextMessage, bytesMessage)
+			client.Receiver <- bytesMessage
+			
 		}
 	}
 }
