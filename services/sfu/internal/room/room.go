@@ -109,6 +109,15 @@ func (r *Room) PerformPeerRemovalOperations(userID string) bool {
 		log.Println("Error sending peer exit info to data channel: %v", err)
 	}
 
+	var updatedForwardedTracks []*ForwardedTrack
+	for _, forwardedTrack := range r.ForwardedTracks {
+		if forwardedTrack.Publisher.UserID != userID {
+			updatedForwardedTracks = append(updatedForwardedTracks, forwardedTrack)
+		}
+	}
+
+	r.ForwardedTracks = updatedForwardedTracks
+
 	return true
 }
 
@@ -203,16 +212,15 @@ func (r *Room) PerformNewForwardedTrackOperations(forwardedTrack *ForwardedTrack
 func sendForwardedTrackToPeer(forwardedTrack *ForwardedTrack, p *peer.Peer) error {
 	// Used for sending exisitng (already forwarded) tracks to new peer
 
-	peerConnection := p.PeerConnection
+	for _, peerTransceiver := range p.PeerTransceivers {
+		if peerTransceiver.IsUsed {
+			continue
+		}
 
-	for _, transceiver := range peerConnection.GetTransceivers() {
+		transceiver := peerTransceiver.Transceiver
 		log.Printf(
 			"kind=%s direction=%s mid=%s sender=%v",
 			transceiver.Kind(), transceiver.Direction(), transceiver.Mid(), transceiver.Sender())
-
-		if transceiver.Direction() != webrtc.RTPTransceiverDirectionSendonly {
-			continue
-		}
 
 		forwardedTrackKind := forwardedTrack.Kind
 		log.Println("Required kind: ", forwardedTrackKind)
@@ -236,6 +244,8 @@ func sendForwardedTrackToPeer(forwardedTrack *ForwardedTrack, p *peer.Peer) erro
 		}
 
 		p.SendIncomingTrackInfo(trackInfo)
+
+		peerTransceiver.IsUsed = true
 
 		return nil
 	}

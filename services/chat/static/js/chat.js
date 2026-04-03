@@ -15,7 +15,7 @@ document.addEventListener("DOMContentLoaded", function () {
     let midToParticipant = {};
 	let participantToMids = {};
     let participantStreams = {};
-    let pendingTracks = {};
+    let midToTrack = {};
 
 	let room = null;
 
@@ -202,21 +202,17 @@ document.addEventListener("DOMContentLoaded", function () {
 		};
 		
 		peerConnection.ontrack = event => {
+			// Called when the peer generates tracks after the connection is established with the SFU
+			// It will create as many tracks as there are transceivers
 			console.log("Track event: ", event);
+			
 			const mid = event.transceiver.mid;
 			const track = event.track;
 			console.log("Track event - mid: ", mid, " | Kind: ", track.kind);
-			const participantId = midToParticipant[mid];
-			if (!participantId) {
-				pendingTracks[mid] = track;
-				console.log("No participant ID. Track queued.");
-				return;
-			}
-			
-			const participantStream = getOrCreateMediaStreamForParticipantId(participantId);
 
-			console.log("Adding track to stream");
-			participantStream.addTrack(track);
+			midToTrack[mid] = track;
+
+			return;
 		};
 
 		dataChannel = peerConnection.createDataChannel("call-info");
@@ -241,30 +237,26 @@ document.addEventListener("DOMContentLoaded", function () {
 
 				const participantStream = getOrCreateMediaStreamForParticipantId(participantId);
 				
-				const pendingTrack = pendingTracks[mid];
-				if (!pendingTrack) {
-					console.log("No pending tracks.");
-					return;
-				}
+				const pendingTrack = midToTrack[mid];
 
 				console.log("Adding track to stream");
 				console.log("Media stream: ", participantStream);
 				participantStream.addTrack(pendingTrack);
-				// delete pendingTracks[mid];
 				return;
 			}
 
 			if (messageType === "peer-exit-info") {
 				const participantId = msg.Data.ParticipantID;
+				
+				const participantStream = getOrCreateMediaStreamForParticipantId(participantId);
+				participantStream.getTracks().forEach(track => {
+					participantStream.removeTrack(track);
+				})
+
 				const mids = participantToMids[participantId];
-				if (!mids) {
-					console.log("No mids saved for participant: ", participantId);
-					return;
-				}
 
 				mids.forEach(mid => {
 					delete midToParticipant[mid];
-					// delete pendingTracks[mid];
 				});
 
 				delete participantToMids[participantId];
@@ -318,7 +310,7 @@ document.addEventListener("DOMContentLoaded", function () {
 		}
 
 		midToParticipant = {};
-		pendingTracks = {};
+		midToTrack = {};
 		participantStreams = {};
 		participantToMids = {};
 
@@ -331,10 +323,6 @@ document.addEventListener("DOMContentLoaded", function () {
 		}
 		
 		videoGrid.innerHTML = "";
-
-		// socket.send(JSON.stringify({
-		// 	Type: "webrtc.peer_left"
-		// }));
     }
 
     function addVideoStream(stream, id, label, muted = false) {
@@ -360,7 +348,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
     function removeVideo(id) {
 	    const el = document.getElementById("video-" + id);
+		if (el == null) return;
 
+		el.srcObject = null;
 	    if (el) el.remove();
     }
 

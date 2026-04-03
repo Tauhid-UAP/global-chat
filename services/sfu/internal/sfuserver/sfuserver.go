@@ -223,7 +223,8 @@ func (s *SFUServer) Signal(stream sfupb.SFUService_SignalServer) error {
 				currentRoom.PerformNewForwardedTrackOperations(forwardedTrack)
 				
 				if kind == webrtc.RTPCodecTypeVideo {
-					peer.IndicatePictureLoss(peerConnection, remoteTrack)
+					// peer.IndicatePictureLoss(peerConnection, remoteTrack)
+					peer.RequestKeyFrame(peerConnection, remoteTrack)
 				}
 
 				go forwardRTP(remoteTrack, localTrack)
@@ -240,11 +241,14 @@ func (s *SFUServer) Signal(stream sfupb.SFUService_SignalServer) error {
 			}
 
 			hasSetRemoteDescription = true
-
+			var peerTransceivers []*peer.PeerTransceiver
 			for _, transceiver := range peerConnection.GetTransceivers() {
 				if transceiver.Direction() != webrtc.RTPTransceiverDirectionSendonly {
 					continue
 				}
+
+				peerTransceiver := &peer.PeerTransceiver{Transceiver: transceiver}
+				peerTransceivers = append(peerTransceivers, peerTransceiver)
 		
 				// Create a dummy local track matching the transceiver's codec kind.
 				// This initializes the RTPSender's internal state (SSRC, etc.)
@@ -266,7 +270,7 @@ func (s *SFUServer) Signal(stream sfupb.SFUService_SignalServer) error {
 						webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeVP8},
 						fmt.Sprintf("placeholder-video-%s", mid),
 						fmt.Sprintf("placeholder-stream-%s", mid),
-					)					
+					)
 				}
 
 				_, err = peerConnection.AddTrack(track)
@@ -275,10 +279,8 @@ func (s *SFUServer) Signal(stream sfupb.SFUService_SignalServer) error {
 					return err
 				}
 			}
-			
-			// log.Println("Forwarding existing tracks")
-			// currentRoom.SendExistingForwardedTracksToPeer(currentPeer)
-			// log.Println("Forwarded existing tracks")
+
+			currentPeer.PeerTransceivers = peerTransceivers
 
 			// flush buffered ICE
 			for _, candidate := range bufferedICECandidates {
