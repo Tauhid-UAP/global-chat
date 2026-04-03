@@ -11,12 +11,6 @@ import (
 	sfupb "github.com/Tauhid-UAP/global-chat/proto/sfu"
 )
 
-type SenderSlot struct {
-        Sender *webrtc.RTPSender
-		Mid string
-        Used bool
-}
-
 type DataChannelMessage struct {
 	Type string `json:"Type"`
 	Data json.RawMessage `json:"Data"`
@@ -32,6 +26,10 @@ type TrackInfo struct {
 	Kind string `json:"Kind"`
 }
 
+type PeerTransceiver struct {
+	Transceiver *webrtc.RTPTransceiver
+	IsUsed bool
+}
 
 // Peer represents a participant in a room
 type Peer struct {
@@ -41,8 +39,8 @@ type Peer struct {
 	Stream sfupb.SFUService_SignalServer
 	
 	PendingTrackInfo []*TrackInfo
-	AudioSenderSlots []*SenderSlot
-	VideoSenderSlots []*SenderSlot
+
+	PeerTransceivers []*PeerTransceiver
 
 	mu sync.Mutex
 	Closed bool
@@ -51,6 +49,14 @@ type Peer struct {
 func IndicatePictureLoss(peerConnection *webrtc.PeerConnection, track *webrtc.TrackRemote) {
 	peerConnection.WriteRTCP([]rtcp.Packet{
 		&rtcp.PictureLossIndication{
+			MediaSSRC: uint32(track.SSRC()),
+		},
+	})
+}
+
+func RequestKeyFrame(peerConnection *webrtc.PeerConnection, track *webrtc.TrackRemote) {
+	peerConnection.WriteRTCP([]rtcp.Packet{
+		&rtcp.FullIntraRequest{
 			MediaSSRC: uint32(track.SSRC()),
 		},
 	})
