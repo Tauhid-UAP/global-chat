@@ -9,6 +9,9 @@ document.addEventListener("DOMContentLoaded", function () {
     let hasSetRemoteDescription = false;
     let bufferedICECandidates = [];
 
+	let isAudioOn = false;
+	let isVideoOn = true;
+
     let midToParticipant = {};
 	let participantToMids = {};
     let participantStreams = {};
@@ -30,6 +33,9 @@ document.addEventListener("DOMContentLoaded", function () {
     const startCallBtn = document.getElementById("startCallBtn");
     const endCallBtn = document.getElementById("endCallBtn");
 
+	const toggleAudioBtn = document.getElementById("toggleAudioBtn");
+	const toggleVideoBtn = document.getElementById("toggleVideoBtn");
+
     const videoSection = document.getElementById("video-section");
     const videoGrid = document.getElementById("video-grid");
 
@@ -38,6 +44,34 @@ document.addEventListener("DOMContentLoaded", function () {
 
     startCallBtn.addEventListener("click", startCall);
     endCallBtn.addEventListener("click", endCall);
+
+
+	toggleAudioBtn.addEventListener("click", toggleAudio);
+	toggleVideoBtn.addEventListener("click", toggleVideo);
+	
+	function toggleAudio() {
+		if (!localStream) return;
+	
+		isAudioOn = !isAudioOn;
+	
+		localStream.getAudioTracks().forEach(track => {
+			track.enabled = isAudioOn;
+		});
+	
+		toggleAudioBtn.textContent = isAudioOn ? "Mute" : "Unmute";
+	}
+
+	function toggleVideo() {
+		if (!localStream) return;
+	
+		isVideoOn = !isVideoOn;
+	
+		localStream.getVideoTracks().forEach(track => {
+			track.enabled = isVideoOn;
+		});
+	
+		toggleVideoBtn.textContent = isVideoOn ? "Video Off" : "Video On";
+	}
 
     messageInput.addEventListener("keydown", function (e) {
         if (e.key === "Enter") {
@@ -117,7 +151,22 @@ document.addEventListener("DOMContentLoaded", function () {
 			video: true,
 			audio: true
 		});
-		
+
+		// 🔥 MUTE AUDIO BY DEFAULT
+		localStream.getAudioTracks().forEach(track => {
+			track.enabled = false;
+		});
+		isAudioOn = false;
+		toggleAudioBtn.textContent = "Unmute";
+
+		// Video ON by default
+		isVideoOn = true;
+		toggleVideoBtn.textContent = "Video Off";
+
+		// Show buttons
+		toggleAudioBtn.style.display = "inline-block";
+		toggleVideoBtn.style.display = "inline-block";
+
 		addVideoStream(localStream, userID, userFullName, true);
 		
 		const iceServers = await fetchICEServers();
@@ -130,7 +179,7 @@ document.addEventListener("DOMContentLoaded", function () {
 		peerConnection = new RTCPeerConnection(iceConfig);
 		
 		localStream.getTracks().forEach(track => {
-				peerConnection.addTrack(track, localStream);
+			peerConnection.addTrack(track, localStream);
 		});
 
 		const max_participants = 10;
@@ -141,21 +190,21 @@ document.addEventListener("DOMContentLoaded", function () {
 		}
 
 		peerConnection.onicecandidate = event => {
-			candidate = event.candidate
+			candidate = event.candidate;
 			if (!candidate) {
-				return
+				return;
 			}
 			
 			socket.send(JSON.stringify({
 				Type: "webrtc.ice",
-			Data: event.candidate
+				Data: event.candidate
 			}));
 		};
 		
 		peerConnection.ontrack = event => {
 			console.log("Track event: ", event);
 			const mid = event.transceiver.mid;
-			const track = event.track
+			const track = event.track;
 			console.log("Track event - mid: ", mid, " | Kind: ", track.kind);
 			const participantId = midToParticipant[mid];
 			if (!participantId) {
@@ -181,13 +230,13 @@ document.addEventListener("DOMContentLoaded", function () {
 				const participantId = msg.Data.ParticipantID;
 				midToParticipant[mid] = participantId;
 				
-				const participantMids = participantToMids[participantId]
+				const participantMids = participantToMids[participantId];
 				if (participantMids) {
-					console.log("Pushed mid for participant")
+					console.log("Pushed mid for participant");
 					participantMids.push(mid);
 				} else {
-					console.log("Initiated mid array for participant")
-					participantToMids[participantId] = [mid]
+					console.log("Initiated mid array for participant");
+					participantToMids[participantId] = [mid];
 				}
 
 				const participantStream = getOrCreateMediaStreamForParticipantId(participantId);
@@ -201,7 +250,7 @@ document.addEventListener("DOMContentLoaded", function () {
 				console.log("Adding track to stream");
 				console.log("Media stream: ", participantStream);
 				participantStream.addTrack(pendingTrack);
-				delete pendingTracks[mid];
+				// delete pendingTracks[mid];
 				return;
 			}
 
@@ -209,12 +258,13 @@ document.addEventListener("DOMContentLoaded", function () {
 				const participantId = msg.Data.ParticipantID;
 				const mids = participantToMids[participantId];
 				if (!mids) {
-					return
+					console.log("No mids saved for participant: ", participantId);
+					return;
 				}
 
 				mids.forEach(mid => {
 					delete midToParticipant[mid];
-					delete pendingTracks[mid];
+					// delete pendingTracks[mid];
 				});
 
 				delete participantToMids[participantId];
@@ -248,8 +298,12 @@ document.addEventListener("DOMContentLoaded", function () {
 		callActive = false;
 
 		startCallBtn.style.display = "inline-block";
+		
 		endCallBtn.style.display = "none";
 		videoSection.style.display = "none";
+
+		toggleAudioBtn.style.display = "none";
+		toggleVideoBtn.style.display = "none";
 		
 		if (peerConnection) {
 			peerConnection.getSenders().forEach(sender => {
@@ -265,7 +319,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
 		midToParticipant = {};
 		pendingTracks = {};
-		participantStreams = {}
+		participantStreams = {};
+		participantToMids = {};
 
 		hasSetRemoteDescription = false;
 		bufferedICECandidates = [];
@@ -430,9 +485,6 @@ document.addEventListener("DOMContentLoaded", function () {
 			    }
 			}
 			break;
-		    
-		    // case "webrtc.peer_left":
-			// break;
 	    }
     }
 
